@@ -25,6 +25,7 @@ test('home with an empty list says so and offers to add a gift', async () => {
   const html = await get('/');
   assert.match(html, /Your list is empty/);
   assert.match(html, /Add a gift/);
+  assert.match(html, /href="\/welcome"/);
 });
 
 test('a new name asks for confirmation instead of silently creating a person', async () => {
@@ -177,4 +178,12 @@ test('type-to-log says when the AI key is turned down', async () => {
   parseEntry = async () => { throw Object.assign(new Error('401 invalid key'), { status: 401 }); };
   const html = await (await post('/gifts/parse', { entry: 'socks for amy' })).text();
   assert.match(html, /check OPENCODE_API_KEY/);
+});
+
+test('welcome page plays the present film and counts down to Christmas', async () => {
+  const html = await get('/welcome');
+  assert.match(html, /class="stage" role="img"/);
+  assert.match(html, /35 days/); // 20 Nov -> 25 Dec 2026
+  assert.match(html, /Christmas 2026/);
+  assert.match(html, /prefers-reduced-motion: reduce/);
 });

@@ -8,6 +8,7 @@ import { personHistory, withDuplicateFlags } from './coverage.js';
 import { upcomingSections, localToday } from './upcoming.js';
 import { parseCost } from './money.js';
 import * as views from './views.js';
+import { landingPage } from './landing.js';
 import { createEntryParser } from './ai/parse-entry.js';
 import { SEASONS, seasonFor } from './season.js';
 
@@ -139,6 +140,7 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
         season: season(),
       }));
     }
+    if (req.method === 'GET' && path === '/welcome') return send(res, 200, landingPage({ today: today(), season: season() }));
     if (req.method === 'GET' && path === '/gifts/new') {
       const q = Object.fromEntries(url.searchParams);
       return giftForm(res, { ...emptyValues(), ...q });

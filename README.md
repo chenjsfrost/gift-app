@@ -24,6 +24,8 @@ npm test                    # tests for the core logic (free, no network)
 
 The look follows the season: snow from 1 Dec to 6 Jan, blossom petals to April, light rain through August, then falling leaves. They settle into a small pile along the bottom of the window. To preview another one, set `SEASON=winter` (or `spring`, `summer`, `autumn`) in `.env`. The animation is switched off if your system asks for reduced motion.
 
+There's a landing page at http://localhost:3000/welcome. Its hero is a looping CSS animation: a present unwraps, past gifts rise out, one is typed in, and the countdown drops. It's CSS only, like the rest of the app, and has a pause button. With reduced motion it shows a still frame.
+
 Amounts are in SGD. Data is stored in `data/gifts.db` (one SQLite file, not committed). Back it up by copying that file.
 
 ## Type-to-log (AI)

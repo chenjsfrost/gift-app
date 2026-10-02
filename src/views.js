@@ -135,7 +135,8 @@ export const SKY_CSS = `
   @media (prefers-reduced-motion: reduce) { .sky { display:none; } .pile { animation:none; } }
 `;
 
-const STYLE = `
+// Tokens, type, buttons, the top bar and the season wash. Shared with the landing page.
+export const BASE_CSS = `
   :root {
     --bg:#f5f5f7; --card:#fff; --fg:#1d1d1f; --fg2:#6e6e73; --fg3:#8e8e93;
     --sep:rgba(60,60,67,.13); --fill:rgba(120,120,128,.12); --fill2:rgba(120,120,128,.07);
@@ -200,6 +201,22 @@ const STYLE = `
   button.icon:hover { background:var(--fill); color:var(--red); }
   button:disabled { opacity:.6; cursor:default; transform:none; }
 
+  /* seasons: a soft wash of colour and a few slow falling things behind the cards */
+  .s-winter { --season:#64d2ff; --particle:rgba(150,185,220,.75); }
+  .s-spring { --season:#ff8fb1; --particle:rgba(242,160,190,.8); }
+  .s-summer { --season:#40c8e0; --particle:rgba(110,170,190,.5); }
+  .s-autumn { --season:#ff9f0a; --particle:rgba(217,130,70,.75); }
+  @media (prefers-color-scheme: dark) {
+    .s-winter { --particle:rgba(230,238,246,.55); } .s-spring { --particle:rgba(232,163,184,.5); }
+    .s-summer { --particle:rgba(120,170,180,.4); } .s-autumn { --particle:rgba(200,120,60,.55); }
+  }
+  body { background:var(--bg) linear-gradient(180deg, color-mix(in srgb, var(--season, var(--bg)) 9%, var(--bg)), var(--bg) 420px) no-repeat; }
+  .season-emoji { font-size:15px; }
+  @media (max-width:640px) { .tabs a { padding:5px 12px; } .brand span.name { display:none; } }
+`;
+
+const STYLE = `
+${BASE_CSS}
   /* cards and lists */
   .card { background:var(--card); border-radius:18px; box-shadow:var(--shadow); border:.5px solid var(--card-line); overflow:hidden; }
   .card + .card { margin-top:16px; }
@@ -357,18 +374,8 @@ const STYLE = `
   .lbl { display:block; font-size:13px; color:var(--fg2); font-weight:600; margin-bottom:6px; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 
-  /* seasons: a soft wash of colour and a few slow falling things behind the cards */
-  .s-winter { --season:#64d2ff; --particle:rgba(150,185,220,.75); }
-  .s-spring { --season:#ff8fb1; --particle:rgba(242,160,190,.8); }
-  .s-summer { --season:#40c8e0; --particle:rgba(110,170,190,.5); }
-  .s-autumn { --season:#ff9f0a; --particle:rgba(217,130,70,.75); }
-  @media (prefers-color-scheme: dark) {
-    .s-winter { --particle:rgba(230,238,246,.55); } .s-spring { --particle:rgba(232,163,184,.5); }
-    .s-summer { --particle:rgba(120,170,180,.4); } .s-autumn { --particle:rgba(200,120,60,.55); }
-  }
-  body { background:var(--bg) linear-gradient(180deg, color-mix(in srgb, var(--season, var(--bg)) 9%, var(--bg)), var(--bg) 420px) no-repeat; }
+  /* seasons: a soft wash of colour (in BASE_CSS) and a few slow falling things behind the cards */
   main.wrap { position:relative; z-index:1; }
-  .season-emoji { font-size:15px; }
 ${SKY_CSS}
 
   /* person */
@@ -381,8 +388,6 @@ ${SKY_CSS}
   @media (max-width:640px) {
     h1 { font-size:30px; }
     .tiles { grid-template-columns:1fr; }
-    .tabs a { padding:5px 12px; }
-    .brand span.name { display:none; }
     .field-row { grid-template-columns:1fr; }
     .field-row .field + .field { border-left:0; border-top:.5px solid var(--sep); }
     .people-add, .two { grid-template-columns:1fr; }
@@ -412,7 +417,7 @@ const SCRIPT = `
   });
 `;
 
-const FAVICON = `data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>🎁</text></svg>")}`;
+export const FAVICON = `data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>🎁</text></svg>")}`;
 
 // A few falling flakes, petals, drops or leaves behind the page, and the pile they
 // land on. CSS only, fixed positions (no randomness), so pages render the same every time.
@@ -429,8 +434,20 @@ export function sky(season) {
 <div class="pile pile-${season.key}" aria-hidden="true"></div>`;
 }
 
-function layout({ title, active = '', body, flash = '', season = seasonFor(new Date().toLocaleDateString('en-CA')) }) {
+export const FONT_LINKS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">`;
+
+// The app's top bar: logo, tabs and Add a gift. wide matches the landing page's width.
+export function topbar({ active = '', season, wide = false }) {
   const tab = (href, name, label) => `<a href="${href}" class="${active === name ? 'on' : ''}">${label}</a>`;
+  return `<header class="topbar"><div class="wrap${wide ? ' wide' : ''}">
+  <a class="brand" href="/welcome"><span class="brand-mark">${ICONS.gift}</span><span class="name">Gift</span><span class="season-emoji" aria-hidden="true">${season.emoji}</span></a>
+  <nav class="tabs" aria-label="Main">${tab('/', 'home', 'Home')}${tab('/people', 'people', 'People')}${tab('/events', 'events', 'Events')}</nav>
+  <a class="btn sm" href="/gifts/new">${ICONS.plus} Add a gift</a>
+</div></header>`;
+}
+
+function layout({ title, active = '', body, flash = '', season = seasonFor(new Date().toLocaleDateString('en-CA')) }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -438,17 +455,12 @@ function layout({ title, active = '', body, flash = '', season = seasonFor(new D
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <link rel="icon" href="${FAVICON}">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+${FONT_LINKS}
 <style>${STYLE}</style>
 </head>
 <body class="s-${season.key}">
 ${sky(season)}
-<header class="topbar"><div class="wrap">
-  <a class="brand" href="/"><span class="brand-mark">${ICONS.gift}</span><span class="name">Gift</span><span class="season-emoji" aria-hidden="true">${season.emoji}</span></a>
-  <nav class="tabs" aria-label="Main">${tab('/', 'home', 'Home')}${tab('/people', 'people', 'People')}${tab('/events', 'events', 'Events')}</nav>
-  <a class="btn sm" href="/gifts/new">${ICONS.plus} Add a gift</a>
-</div></header>
+${topbar({ active, season })}
 <main class="wrap">
 ${flash}
 ${body}
