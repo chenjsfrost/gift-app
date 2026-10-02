@@ -49,7 +49,7 @@ What it needs that the app doesn't have yet: hosting (it runs on your PC only to
 
 ## Landing page on GitHub Pages
 
-The landing page and a demo video are published at https://emocado.github.io/gift-app/. Only the page is online; the app itself still runs on your PC. `npm run build:site` writes it to `_site/`, and `.github/workflows/pages.yml` deploys it on every push to main and once a day, so the Christmas countdown stays current. On the site the season menu works in the browser.
+The landing page and a demo video are published at https://chenjsfrost.github.io/gift-app/. Only the page is online; the app itself still runs on your PC. `npm run build:site` writes it to `_site/`, and `.github/workflows/pages.yml` deploys it on every push to main and once a day, so the Christmas countdown stays current. On the site the season menu works in the browser.
 
 The video lives in `demo/`, its own project. `npm run capture` takes screenshots of the running app with Playwright CLI, on a copy of a database (`DEMO_DB`, default `data/gifts.db`), and `npm run render` turns them into `demo/out/demo.mp4` with Remotion. Run `npm install` in `demo/` first.
 
@@ -98,3 +98,8 @@ Register-ScheduledTask -TaskName "Gift reminder" -Action $action -Trigger $trigg
 ```
 
 To remove it: `Unregister-ScheduledTask -TaskName "Gift reminder"`.
+
+## Authors
+
+- Wei Khiang ([@emocado](https://github.com/emocado)), original author
+- [@chenjsfrost](https://github.com/chenjsfrost)

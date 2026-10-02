@@ -10,7 +10,7 @@ import { seasonFor } from './season.js';
 import { localToday } from './upcoming.js';
 
 const OUT = '_site';
-const CODE = 'https://github.com/emocado/gift-app';
+const CODE = 'https://github.com/chenjsfrost/gift-app';
 
 const today = localToday();
 const season = seasonFor(today);
