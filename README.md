@@ -22,7 +22,7 @@ npm start                   # open http://localhost:3000
 npm test                    # tests for the core logic (free, no network)
 ```
 
-The look follows the season: snow from 1 Dec to 6 Jan, blossom petals to April, light rain through August, then falling leaves. To preview another one, set `SEASON=winter` (or `spring`, `summer`, `autumn`) in `.env`. The animation is switched off if your system asks for reduced motion.
+The look follows the season: snow from 1 Dec to 6 Jan, blossom petals to April, light rain through August, then falling leaves. They settle into a small pile along the bottom of the window. To preview another one, set `SEASON=winter` (or `spring`, `summer`, `autumn`) in `.env`. The animation is switched off if your system asks for reduced motion.
 
 Amounts are in SGD. Data is stored in `data/gifts.db` (one SQLite file, not committed). Back it up by copying that file.
 

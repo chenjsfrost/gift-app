@@ -75,6 +75,66 @@ const tile = (label, value, sub = '') =>
 
 // --- page shell -----------------------------------------------------------------
 
+// Falling things behind the cards, settling into a pile along the bottom of the
+// window. Each lands with a small squash and bounce (rain splashes instead), then
+// melts into the pile. Shared with the landing page.
+export const SKY_CSS = `
+  .sky-winter, .pile-winter { --pile:#fff; --pile2:#e9f0f8; }
+  .sky-spring, .pile-spring { --pile:#f6c9d6; --pile2:#efb3c5; }
+  .sky-summer, .pile-summer { --pile:rgb(31 122 128 / .3); --pile2:rgb(31 122 128 / .16); }
+  .sky-autumn, .pile-autumn { --pile:#e3a06a; --pile2:#c06a35; }
+  @media (prefers-color-scheme: dark) {
+    .sky-winter, .pile-winter { --pile:#e8eef6; --pile2:#c9d5e3; }
+    .sky-spring, .pile-spring { --pile:#c98aa0; --pile2:#a86e83; }
+    .sky-summer, .pile-summer { --pile:rgb(111 199 205 / .3); --pile2:rgb(111 199 205 / .16); }
+    .sky-autumn, .pile-autumn { --pile:#b8703c; --pile2:#8a4c26; }
+  }
+  /* Pile height per season, set on body so the page leaves room for it at the end. */
+  body:has(.pile-winter) { --pile-h:34px; } body:has(.pile-spring) { --pile-h:26px; }
+  body:has(.pile-summer) { --pile-h:16px; } body:has(.pile-autumn) { --pile-h:32px; }
+  body { padding-bottom:var(--pile-h, 0px); }
+
+  .sky { position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+  .sky span { --spin:0deg; position:absolute; top:-24px; left:var(--x); width:calc(9px * var(--size)); height:calc(9px * var(--size)); background:var(--particle);
+              --land:calc(100vh + 24px - var(--pile-h) * .6 - 9px * var(--size));
+              animation:fall var(--dur) linear var(--delay) infinite; }
+  .sky-winter span { border-radius:50%; }
+  .sky-spring span { --spin:540deg; border-radius:70% 0 70% 0; }
+  .sky-autumn span { --spin:540deg; width:calc(12px * var(--size)); border-radius:0 80% 0 80%; }
+  .sky-summer span { width:2px; height:calc(16px * var(--size)); border-radius:2px;
+              --land:calc(100vh + 24px - var(--pile-h) * .5 - 16px * var(--size));
+              animation-name:rain; animation-duration:calc(var(--dur) / 4); }
+  @keyframes fall {
+    0%   { translate:0 0; rotate:0deg; scale:1; opacity:1; }
+    45%  { translate:24px 45vh; }
+    86%  { translate:-8px var(--land); rotate:var(--spin); scale:1; }
+    89%  { translate:-8px var(--land); rotate:var(--spin); scale:1.35 .6; }
+    92%  { translate:-8px calc(var(--land) - 6px); rotate:var(--spin); scale:.9 1.1; }
+    95%  { translate:-8px var(--land); rotate:var(--spin); scale:1; opacity:1; }
+    100% { translate:-8px var(--land); rotate:var(--spin); scale:1; opacity:0; }
+  }
+  @keyframes rain {
+    0%   { translate:0 0; scale:1; opacity:1; }
+    88%  { translate:0 var(--land); scale:1; opacity:1; }
+    91%  { translate:0 var(--land); scale:3 .15; opacity:1; }
+    100% { translate:0 var(--land); scale:9 .1; opacity:0; }
+  }
+
+  /* The pile: always at the bottom of the window, in front, and slowly building up.
+     Lumps of three widths that don't line up, so the top edge looks uneven. */
+  .pile { position:fixed; left:0; right:0; bottom:0; height:var(--pile-h); pointer-events:none; z-index:3;
+    transform-origin:bottom; animation:build 120s ease-out forwards;
+    background:
+      radial-gradient(ellipse 50% 100% at 50% 100%, var(--pile) 70%, transparent 72%) 0 100% / 97px 58% repeat-x,
+      radial-gradient(ellipse 50% 100% at 50% 100%, var(--pile) 70%, transparent 72%) 41px 100% / 163px 82% repeat-x,
+      radial-gradient(ellipse 50% 100% at 50% 100%, var(--pile2) 70%, transparent 72%) 113px 100% / 251px 100% repeat-x,
+      linear-gradient(var(--pile), var(--pile)) 0 100% / 100% 35% no-repeat; }
+  .pile-winter { filter:drop-shadow(0 -1px 3px rgb(70 100 140 / .35)); }
+  .pile-summer { background:linear-gradient(to top, var(--pile), var(--pile2) 60%, transparent); animation-duration:60s; }
+  @keyframes build { from { scale:1 .55; } to { scale:1 1; } }
+  @media (prefers-reduced-motion: reduce) { .sky { display:none; } .pile { animation:none; } }
+`;
+
 const STYLE = `
   :root {
     --bg:#f5f5f7; --card:#fff; --fg:#1d1d1f; --fg2:#6e6e73; --fg3:#8e8e93;
@@ -309,15 +369,7 @@ const STYLE = `
   body { background:var(--bg) linear-gradient(180deg, color-mix(in srgb, var(--season, var(--bg)) 9%, var(--bg)), var(--bg) 420px) no-repeat; }
   main.wrap { position:relative; z-index:1; }
   .season-emoji { font-size:15px; }
-  .sky { position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
-  .sky span { position:absolute; top:-24px; left:var(--x); width:calc(9px * var(--size)); height:calc(9px * var(--size)); background:var(--particle);
-              animation:fall var(--dur) linear var(--delay) infinite; }
-  .sky-winter span { border-radius:50%; }
-  .sky-spring span { border-radius:70% 0 70% 0; animation-name:fall, turn; animation-duration:var(--dur), calc(var(--dur) / 2); }
-  .sky-autumn span { width:calc(12px * var(--size)); border-radius:0 80% 0 80%; animation-name:fall, turn; animation-duration:var(--dur), calc(var(--dur) / 2); }
-  .sky-summer span { width:2px; height:calc(16px * var(--size)); border-radius:2px; animation-duration:calc(var(--dur) / 4); }
-  @keyframes fall { 0% { transform:translate(0, 0); } 50% { transform:translate(24px, 52vh); } 100% { transform:translate(-8px, 105vh); } }
-  @keyframes turn { to { rotate:360deg; } }
+${SKY_CSS}
 
   /* person */
   .person-head { display:flex; align-items:center; gap:20px; margin-bottom:24px; flex-wrap:wrap; }
@@ -362,10 +414,10 @@ const SCRIPT = `
 
 const FAVICON = `data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>🎁</text></svg>")}`;
 
-// A few falling flakes, petals, drops or leaves behind the page. CSS only, fixed
-// positions (no randomness), so pages render the same every time.
+// A few falling flakes, petals, drops or leaves behind the page, and the pile they
+// land on. CSS only, fixed positions (no randomness), so pages render the same every time.
 const PARTICLES = 14;
-function sky(season) {
+export function sky(season) {
   const bits = Array.from({ length: PARTICLES }, (_, i) => {
     const x = (i * 37 + 11) % 100;
     const dur = 11 + ((i * 7) % 9);
@@ -373,7 +425,8 @@ function sky(season) {
     const size = 0.6 + ((i * 3) % 5) / 10;
     return `<span style="--x:${x}%;--dur:${dur}s;--delay:${delay}s;--size:${size.toFixed(1)}"></span>`;
   });
-  return `<div class="sky sky-${season.key}" aria-hidden="true">${bits.join('')}</div>`;
+  return `<div class="sky sky-${season.key}" aria-hidden="true">${bits.join('')}</div>
+<div class="pile pile-${season.key}" aria-hidden="true"></div>`;
 }
 
 function layout({ title, active = '', body, flash = '', season = seasonFor(new Date().toLocaleDateString('en-CA')) }) {
@@ -392,7 +445,7 @@ function layout({ title, active = '', body, flash = '', season = seasonFor(new D
 <body class="s-${season.key}">
 ${sky(season)}
 <header class="topbar"><div class="wrap">
-  <a class="brand" href="/"><span class="brand-mark">${ICONS.gift}</span><span class="name">Gifts</span><span class="season-emoji" aria-hidden="true">${season.emoji}</span></a>
+  <a class="brand" href="/"><span class="brand-mark">${ICONS.gift}</span><span class="name">Gift</span><span class="season-emoji" aria-hidden="true">${season.emoji}</span></a>
   <nav class="tabs" aria-label="Main">${tab('/', 'home', 'Home')}${tab('/people', 'people', 'People')}${tab('/events', 'events', 'Events')}</nav>
   <a class="btn sm" href="/gifts/new">${ICONS.plus} Add a gift</a>
 </div></header>
