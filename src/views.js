@@ -1,6 +1,6 @@
 // HTML pages. Plain server-rendered forms, no client-side JavaScript.
 import { formatCost } from './money.js';
-import { daysBetween } from './occasions.js';
+import { daysBetween, nextEventDate } from './occasions.js';
 import { seasonFor } from './season.js';
 
 export const esc = (s) =>
@@ -10,9 +10,12 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export const formatDate = (iso) => (iso ? `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}` : '—');
 const formatBirthday = (md) => (md ? `${Number(md.slice(3, 5))} ${MONTHS[Number(md.slice(0, 2)) - 1]}` : null);
 
-export function occasionLabel(occasion, date, personName = null) {
+// name: the person's name for a birthday, or the event's name for a custom event.
+export function occasionLabel(occasion, date, name = null) {
   const year = date.slice(0, 4);
   if (occasion === 'christmas') return `Christmas ${year}`;
+  if (occasion === 'event') return `${name ?? 'Event'} ${year}`;
+  const personName = name;
   return personName ? `${personName}'s birthday ${year}` : `Birthday ${year}`;
 }
 
@@ -96,6 +99,35 @@ function layout(title, body, flash = '', season = seasonFor(new Date().toLocaleD
   details { margin-top: 12px; }
   form.inline { display: inline; }
 
+  /* Pill toggles for lists: a hidden checkbox inside a label. */
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top: 4px; }
+  .chip { position: relative; display:inline-flex; align-items:center; gap:6px; margin:0; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-weight: 600; cursor: pointer; user-select: none; transition: background .15s ease, color .15s ease; }
+  .chip input { position:absolute; opacity:0; width:1px; height:1px; }
+  .chip:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .chip:has(input:checked)::before { content: "✓"; }
+  .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Birthday picker: day and month side by side, with a cake. */
+  .bday { display:flex; align-items:center; gap:8px; padding: 6px 8px 6px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); width: fit-content; max-width: 100%; }
+  .bday select { width: auto; border: 0; background-color: var(--card); padding: 8px 32px 8px 12px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23948c80' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; }
+  .bday .cake { font-size: 1.2rem; }
+
+  /* People and event cards. */
+  .card-list > li { padding: 14px 0; }
+  .who { display:flex; align-items:center; gap: 12px; }
+  .avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; display:grid; place-items:center; font-weight: 800; color: var(--on-accent); background: var(--accent); }
+  .card-list > li:nth-child(3n+2) .avatar { background: var(--accent2); }
+  .card-list > li:nth-child(3n) .avatar { background: var(--muted); }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin-top: 4px; }
+  .tag { font-size: .8rem; padding: 1px 10px; border-radius: 999px; background: var(--bg2); color: var(--fg); }
+  .tag.none { color: var(--muted); }
+  .edit { margin: 10px 0 0 52px; }
+  .edit summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .9rem; }
+  .edit[open] summary { margin-bottom: 4px; }
+  .actions { display:flex; gap: 12px; align-items:center; flex-wrap: wrap; margin-top: 12px; }
+
   /* Falling things: few, small, slow, behind the cards. Off for reduced motion. */
   .sky { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
   .sky span { position: absolute; top: -24px; left: var(--x); width: calc(10px * var(--size)); height: calc(10px * var(--size));
@@ -118,7 +150,7 @@ ${sky(season)}
 <main>
 <header>
   <a class="brand" href="/">🎁 Gift log ${season.emoji}</a>
-  <nav><a href="/">Home</a><a href="/gifts/new">Add a gift</a><a href="/people">People</a></nav>
+  <nav><a href="/">Home</a><a href="/gifts/new">Add a gift</a><a href="/people">People</a><a href="/events">Events</a></nav>
 </header>
 ${flash}
 ${body}
@@ -141,13 +173,13 @@ export function homePage({ today, sections, peopleCount, flash, season }) {
   }
   const body = sections
     .map(({ occ, label, covered, missing }) => {
-      const prefill = { occasion: occ.occasion, occasionDate: occ.date };
+      const prefill = { occasion: occ.occasion === 'event' ? `event:${occ.eventId}` : occ.occasion, occasionDate: occ.date };
       const missingList = missing.length
         ? missing
             .map(
               ({ person, lastGift }) => `<li><a href="/people/${person.id}">${esc(person.name)}</a>
                 <a href="${esc(giftUrl({ ...prefill, person: person.name }))}">+ log gift</a>
-                <div class="muted">${lastGift ? `Last time: ${esc(lastGift.what)} (${esc(occasionLabel(lastGift.occasion, lastGift.occasionDate))}, ${formatCost(lastGift.costCents)})` : 'Nothing recorded yet'}</div></li>`,
+                <div class="muted">${lastGift ? `Last time: ${esc(lastGift.what)} (${esc(occasionLabel(lastGift.occasion, lastGift.occasionDate, lastGift.eventName))}, ${formatCost(lastGift.costCents)})` : 'Nothing recorded yet'}</div></li>`,
             )
             .join('')
         : '<li class="muted">Nobody left. Everyone is covered.</li>';
@@ -159,7 +191,7 @@ export function homePage({ today, sections, peopleCount, flash, season }) {
             )
             .join('')
         : '<li class="muted">Nobody yet.</li>';
-      const icon = occ.occasion === 'christmas' ? '🎄' : '🎂';
+      const icon = { christmas: '🎄', birthday: '🎂', event: '🎉' }[occ.occasion];
       return `<section class="occ ${occ.occasion}">
         <h2>${icon} ${esc(label)}</h2>
         <div class="muted">${formatDate(occ.date)}, ${whenLabel(today, occ.date)}</div>
@@ -176,16 +208,18 @@ export function homePage({ today, sections, peopleCount, flash, season }) {
   );
 }
 
-export function personPage({ person, history, flash, season }) {
+export function personPage({ person, history, flash, season, events = [] }) {
+  const onEvents = events.filter((e) => person.eventIds?.includes(e.id)).map((e) => e.name);
   const facts = [
     person.birthday ? `Birthday ${formatBirthday(person.birthday)}` : 'No birthday set',
     person.onChristmasList ? 'On the Christmas list' : 'Not on the Christmas list',
+    ...(onEvents.length ? [`Also on: ${onEvents.join(', ')}`] : []),
   ].join(' · ');
   const addUrl = giftUrl({ person: person.name });
   const list = history.length
     ? `<ul>${history
         .map(
-          (g) => `<li><strong>${esc(occasionLabel(g.occasion, g.occasionDate))}</strong>: ${esc(g.what)}, ${formatCost(g.costCents)}${dupBadge(g)}
+          (g) => `<li><strong>${esc(occasionLabel(g.occasion, g.occasionDate, g.eventName))}</strong>: ${esc(g.what)}, ${formatCost(g.costCents)}${dupBadge(g)}
             <div class="muted">Bought ${formatDate(g.givenDate)} ·
               <form class="inline" method="post" action="/gifts/${g.id}/delete"><button class="link" type="submit">delete</button></form></div></li>`,
         )
@@ -194,7 +228,7 @@ export function personPage({ person, history, flash, season }) {
   return layout(
     person.name,
     `<h1>${esc(person.name)}</h1>
-     <p class="muted">${esc(facts)} · <a href="/people#p${person.id}">edit</a></p>
+     <p class="muted">${esc(facts)} · <a href="/people?edit=${person.id}#p${person.id}">edit</a></p>
      <section><h2>Gift history</h2>${list}</section>
      <p><a class="button" href="${esc(addUrl)}">+ Add a gift for ${esc(person.name)}</a></p>`,
     flash,
@@ -203,7 +237,7 @@ export function personPage({ person, history, flash, season }) {
 }
 
 // values: { person, what, occasion, givenDate, cost, occasionDate, entry }
-export function giftFormPage({ values, peopleNames, error, confirmNewPerson, notice, aiEnabled, season }) {
+export function giftFormPage({ values, peopleNames, error, confirmNewPerson, notice, aiEnabled, season, events = [] }) {
   const v = values;
   const radio = (val, label) =>
     `<label><input type="radio" name="occasion" value="${val}" ${v.occasion === val ? 'checked' : ''}> ${label}</label>`;
@@ -235,7 +269,7 @@ export function giftFormPage({ values, peopleNames, error, confirmNewPerson, not
        <label for="what">What</label>
        <input id="what" name="what" value="${esc(v.what)}" required autocomplete="off">
        <label>Occasion</label>
-       <div class="row">${radio('christmas', 'Christmas')}${radio('birthday', 'Birthday')}</div>
+       <div class="row">${radio('christmas', 'Christmas')}${radio('birthday', 'Birthday')}${events.map((e) => radio(`event:${e.id}`, esc(e.name))).join('')}</div>
        <label for="givenDate">Date bought</label>
        <input id="givenDate" name="givenDate" type="date" value="${esc(v.givenDate)}">
        <label for="cost">Cost (S$)</label>
@@ -255,22 +289,42 @@ export function giftFormPage({ values, peopleNames, error, confirmNewPerson, not
 function birthdayFields(md) {
   const [m, d] = md ? md.split('-').map(Number) : [0, 0];
   const opt = (val, label, sel) => `<option value="${val}" ${sel ? 'selected' : ''}>${label}</option>`;
-  return `<select name="bday" aria-label="Birthday day">${opt('', 'Day', !d)}${Array.from({ length: 31 }, (_, i) => opt(i + 1, i + 1, d === i + 1)).join('')}</select>
-    <select name="bmonth" aria-label="Birthday month">${opt('', 'Month', !m)}${MONTHS.map((n, i) => opt(i + 1, n, m === i + 1)).join('')}</select>`;
+  return `<div class="bday"><span class="cake" aria-hidden="true">🎂</span>
+    <select name="bday" aria-label="Birthday day">${opt('', 'Day', !d)}${Array.from({ length: 31 }, (_, i) => opt(i + 1, i + 1, d === i + 1)).join('')}</select>
+    <select name="bmonth" aria-label="Birthday month">${opt('', 'Month', !m)}${MONTHS.map((n, i) => opt(i + 1, n, m === i + 1)).join('')}</select></div>`;
 }
 
-export function peoplePage({ people, flash, error, season }) {
+const chip = (name, label, checked) =>
+  `<label class="chip"><input type="checkbox" name="${name}" value="1" ${checked ? 'checked' : ''}>${label}</label>`;
+
+// Christmas plus every custom event, as pill toggles.
+const listChips = (events, { onChristmasList, eventIds = [] }) =>
+  `<div class="chips">${chip('christmas', '🎄 Christmas', onChristmasList)}${events
+    .map((e) => chip(`event_${e.id}`, `🎉 ${esc(e.name)}`, eventIds.includes(e.id)))
+    .join('')}</div>`;
+
+const initial = (name) => esc([...name.trim()][0]?.toUpperCase() ?? '?');
+
+export function peoplePage({ people, events = [], flash, error, season, openId = null }) {
   const rows = people.length
     ? people
-        .map(
-          (p) => `<li id="p${p.id}">
-            <form method="post" action="/people/${p.id}">
-              <a href="/people/${p.id}"><strong>${esc(p.name)}</strong></a>
-              <div class="row" style="margin-top:6px">${birthdayFields(p.birthday)}
-                <label><input type="checkbox" name="christmas" value="1" ${p.onChristmasList ? 'checked' : ''}> Christmas list</label>
-                <button type="submit">Save</button></div>
-            </form></li>`,
-        )
+        .map((p) => {
+          const tags = [
+            p.birthday ? `🎂 ${formatBirthday(p.birthday)}` : null,
+            p.onChristmasList ? '🎄 Christmas' : null,
+            ...events.filter((e) => p.eventIds?.includes(e.id)).map((e) => `🎉 ${esc(e.name)}`),
+          ].filter(Boolean);
+          return `<li id="p${p.id}">
+            <div class="who"><span class="avatar" aria-hidden="true">${initial(p.name)}</span>
+              <div><a href="/people/${p.id}"><strong>${esc(p.name)}</strong></a>
+                <div class="tags">${tags.length ? tags.map((t) => `<span class="tag">${t}</span>`).join('') : '<span class="tag none">No birthday or lists yet</span>'}</div></div></div>
+            <details class="edit" ${openId === p.id ? 'open' : ''}><summary>Edit birthday and lists</summary>
+              <form method="post" action="/people/${p.id}">
+                <label>Birthday</label>${birthdayFields(p.birthday)}
+                <label>Lists</label>${listChips(events, p)}
+                <div class="actions"><button type="submit">Save</button></div>
+              </form></details></li>`;
+        })
         .join('')
     : '<li class="muted">Nobody yet.</li>';
   return layout(
@@ -280,11 +334,60 @@ export function peoplePage({ people, flash, error, season }) {
      <section><h2>Add someone</h2>
        <form method="post" action="/people">
          <label for="name">Name</label><input id="name" name="name" required autocomplete="off">
-         <label>Birthday (optional)</label><div class="row">${birthdayFields(null)}</div>
-         <div class="row" style="margin-top:12px"><label><input type="checkbox" name="christmas" value="1" checked> On the Christmas list</label></div>
-         <p><button type="submit">Add</button></p>
+         <label>Birthday (optional)</label>${birthdayFields(null)}
+         <label>Lists</label>${listChips(events, { onChristmasList: true })}
+         <div class="actions"><button type="submit">Add</button>
+           ${events.length ? '' : '<span class="muted">Want more lists? <a href="/events">Create an event</a>.</span>'}</div>
        </form></section>
-     <section><h2>Your list (${people.length})</h2><ul>${rows}</ul></section>`,
+     <section><h2>Your list (${people.length})</h2><ul class="card-list">${rows}</ul></section>`,
+    flash,
+    season,
+  );
+}
+
+const repeatLabel = (e) => (e.repeats ? `every year on ${formatBirthday(e.date.slice(5))}` : `once, on ${formatDate(e.date)}`);
+
+function eventFields(e, people) {
+  const members = e ? people.filter((p) => p.eventIds?.includes(e.id)) : [];
+  return `<label for="ename${e?.id ?? ''}">Name</label>
+    <input id="ename${e?.id ?? ''}" name="name" value="${esc(e?.name)}" placeholder="Mother's Day, Lunar New Year, Wedding…" required autocomplete="off">
+    <label for="edate${e?.id ?? ''}">Date</label>
+    <input id="edate${e?.id ?? ''}" name="date" type="date" value="${esc(e?.date)}" required>
+    <div class="chips" style="margin-top:8px">${chip('repeats', '🔁 Every year', e ? e.repeats : true)}</div>
+    <label>Who's on this list</label>
+    ${people.length
+      ? `<div class="chips">${people.map((p) => chip(`person_${p.id}`, esc(p.name), members.includes(p))).join('')}</div>`
+      : '<p class="muted">Nobody on your list yet. <a href="/people">Add people</a> first, or tick this event when you add them.</p>'}`;
+}
+
+export function eventsPage({ events, people, today, flash, error, season, openId = null }) {
+  const rows = events.length
+    ? events
+        .map((e) => {
+          const next = nextEventDate(e, today);
+          const members = people.filter((p) => p.eventIds?.includes(e.id));
+          return `<li id="e${e.id}">
+            <div class="who"><span class="avatar" aria-hidden="true">🎉</span>
+              <div><strong>${esc(e.name)}</strong>
+                <div class="muted">${esc(repeatLabel(e))}${next ? ` · next ${formatDate(next)}, ${whenLabel(today, next)}` : ' · already passed'}</div>
+                <div class="tags">${members.length ? members.map((p) => `<span class="tag">${esc(p.name)}</span>`).join('') : '<span class="tag none">Nobody on this list yet</span>'}</div></div></div>
+            <details class="edit" ${openId === e.id ? 'open' : ''}><summary>Edit event and list</summary>
+              <form method="post" action="/events/${e.id}">${eventFields(e, people)}
+                <div class="actions"><button type="submit">Save</button></div></form>
+              <form method="post" action="/events/${e.id}/delete" style="margin-top:8px"><button class="link" type="submit">Delete this event</button></form>
+            </details></li>`;
+        })
+        .join('')
+    : '<li class="muted">No events yet. Christmas and birthdays are already built in.</li>';
+  return layout(
+    'Events',
+    `<h1>Events</h1>
+     <p class="greeting">Christmas and birthdays are built in. Add anything else you give gifts for.</p>
+     ${error ? flashBox(error, 'error') : ''}
+     <section><h2>Add an event</h2>
+       <form method="post" action="/events">${eventFields(null, people)}
+         <div class="actions"><button type="submit">Add event</button></div></form></section>
+     <section><h2>Your events (${events.length})</h2><ul class="card-list">${rows}</ul></section>`,
     flash,
     season,
   );

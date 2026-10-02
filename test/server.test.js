@@ -141,3 +141,34 @@ test('pages wear the season for today, or a fixed SEASON override', async () => 
   assert.match(await html(createApp({ db, today: () => '2026-10-02' })), /class="s-autumn"/);
   assert.match(await html(createApp({ db, today: () => '2026-10-02', season: 'spring' })), /class="s-spring"/);
 });
+
+test('events: create one with a list, log a gift for it, and see it on the home page', async () => {
+  const gus = db.addPerson({ name: 'Gus' });
+  let res = await post('/events', { name: 'Housewarming', date: '2026-12-05', [`person_${gus.id}`]: '1' });
+  assert.match(flashOf(res), /Added Housewarming/);
+  const ev = db.listEvents().find((e) => e.name === 'Housewarming');
+  assert.equal(ev.repeats, false);
+  assert.deepEqual(db.getPerson(gus.id).eventIds, [ev.id]);
+  assert.match(await get('/'), /Housewarming 2026[\s\S]*Still to buy \(1\)[\s\S]*Gus/);
+  assert.match(await get('/gifts/new'), new RegExp(`value="event:${ev.id}"`));
+
+  res = await post('/gifts', { person: 'Gus', what: 'Plant', occasion: `event:${ev.id}`, cost: '30' });
+  assert.match(flashOf(res), /Saved: Plant for Gus \(Housewarming 2026\)/);
+  assert.deepEqual(db.listGifts().filter((g) => g.eventId === ev.id).map((g) => g.occasionDate), ['2026-12-05']);
+  assert.match(await get(`/people/${gus.id}`), /Housewarming 2026<\/strong>: Plant/);
+
+  res = await post(`/events/${ev.id}/delete`, {});
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /can&#39;t be deleted/);
+});
+
+test('people page: list toggles add and remove someone from an event', async () => {
+  const ev = db.addEvent({ name: 'Lunar New Year', date: '2027-02-06', repeats: false });
+  let res = await post('/people', { name: 'Hal', christmas: '1', [`event_${ev.id}`]: '1' });
+  const hal = db.findPersonByName('Hal');
+  assert.deepEqual(hal.eventIds, [ev.id]);
+  assert.match(await get('/people'), /🎉 Lunar New Year/);
+  res = await post(`/people/${hal.id}`, { christmas: '1' });
+  assert.equal(res.status, 303);
+  assert.deepEqual(db.getPerson(hal.id).eventIds, []);
+});

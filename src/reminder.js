@@ -21,7 +21,7 @@ export function buildReminder({ sections, today, days, appUrl }) {
   const blocks = open.map((s) => {
     const lines = s.missing.map(({ person, lastGift: g }) =>
       g
-        ? `- ${person.name} (last time: ${g.what}, ${occasionLabel(g.occasion, g.occasionDate)}, ${formatCost(g.costCents)})`
+        ? `- ${person.name} (last time: ${g.what}, ${occasionLabel(g.occasion, g.occasionDate, g.eventName)}, ${formatCost(g.costCents)})`
         : `- ${person.name} (nothing recorded yet)`,
     );
     const all = s.missing.length + s.covered.length;

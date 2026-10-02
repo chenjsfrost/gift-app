@@ -40,13 +40,26 @@ function birthdayFrom(f) {
   return `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+// Ticked pill toggles named like "event_3" -> [3].
+const idsFrom = (f, prefix) =>
+  Object.keys(f)
+    .filter((k) => k.startsWith(prefix) && f[k] === '1')
+    .map((k) => Number(k.slice(prefix.length)))
+    .filter(Number.isInteger);
+
 export function createApp({ db, today = localToday, parseEntry = null, season: fixedSeason = null }) {
   // A fixed season (SEASON=winter in .env) previews a theme; otherwise it follows the date.
   const season = () => SEASONS[fixedSeason] ?? seasonFor(today());
   const peopleNames = () => db.listPeople().map((p) => p.name);
 
   const giftForm = (res, values, extra = {}) =>
-    send(res, extra.status ?? 200, views.giftFormPage({ values, peopleNames: peopleNames(), aiEnabled: !!parseEntry, season: season(), ...extra }));
+    send(res, extra.status ?? 200, views.giftFormPage({ values, peopleNames: peopleNames(), events: db.listEvents(), aiEnabled: !!parseEntry, season: season(), ...extra }));
+
+  const peoplePage = (res, status, extra = {}) =>
+    send(res, status, views.peoplePage({ people: db.listPeople(), events: db.listEvents(), season: season(), ...extra }));
+  const eventsPage = (res, status, extra = {}) =>
+    send(res, status, views.eventsPage({ events: db.listEvents(), people: db.listPeople(), today: today(), season: season(), ...extra }));
+  const eventFrom = (f) => ({ name: f.name, date: f.date, repeats: f.repeats === '1', personIds: idsFrom(f, 'person_') });
 
   const emptyValues = () => ({ person: '', what: '', occasion: 'christmas', givenDate: today(), cost: '', occasionDate: '', entry: '' });
 
@@ -62,13 +75,16 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
     }
     try {
       person ??= db.addPerson({ name });
-      const occasion = f.occasion || 'christmas';
+      // Custom events come through as "event:<id>".
+      const [occasion, eventId] = (f.occasion || 'christmas').split(':');
+      const event = occasion === 'event' ? db.getEvent(Number(eventId)) : null;
+      if (occasion === 'event' && !event) throw new Error('That event no longer exists.');
       const givenDate = f.givenDate || today();
-      const occasionDate = f.occasionDate || defaultOccasionDate(occasion, givenDate, person.birthday);
+      const occasionDate = f.occasionDate || defaultOccasionDate(occasion, givenDate, person.birthday, event);
       const costCents = parseCost(f.cost);
-      const gift = db.addGift({ personId: person.id, what: f.what, occasion, occasionDate, givenDate, costCents });
+      const gift = db.addGift({ personId: person.id, what: f.what, occasion, occasionDate, givenDate, costCents, eventId: event?.id });
 
-      const notes = [`Saved: ${gift.what} for ${person.name} (${views.occasionLabel(occasion, occasionDate)}).`];
+      const notes = [`Saved: ${gift.what} for ${person.name} (${views.occasionLabel(occasion, occasionDate, event?.name)}).`];
       if (costCents === null && (f.cost ?? '').trim()) notes.push(`"${f.cost}" isn't a number, so the cost was left blank.`);
       const flagged = withDuplicateFlags(db.listGifts()).find((g) => g.id === gift.id);
       if (flagged.possibleDuplicate) notes.push(`Possible duplicate: ${person.name} already has a gift logged for this occasion. Both are kept.`);
@@ -124,30 +140,61 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
       return redirect(res, withFlash(`/people/${gift.personId}`, `Deleted: ${gift.what}.`));
     }
     if (req.method === 'GET' && path === '/people') {
-      return send(res, 200, views.peoplePage({ people: db.listPeople(), flash, season: season() }));
+      return peoplePage(res, 200, { flash, openId: Number(url.searchParams.get('edit')) || null });
     }
     if (req.method === 'POST' && path === '/people') {
       const f = await readForm(req);
       try {
-        const p = db.addPerson({ name: f.name, birthday: birthdayFrom(f), onChristmasList: f.christmas === '1' });
+        const p = db.addPerson({ name: f.name, birthday: birthdayFrom(f), onChristmasList: f.christmas === '1', eventIds: idsFrom(f, 'event_') });
         return redirect(res, withFlash('/people', `Added ${p.name}.`));
       } catch (err) {
-        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message, season: season() }));
+        return peoplePage(res, 400, { error: err.message });
       }
     }
     if (req.method === 'POST' && (m = path.match(/^\/people\/(\d+)$/))) {
       const f = await readForm(req);
       try {
-        const p = db.updatePerson(Number(m[1]), { birthday: birthdayFrom(f), onChristmasList: f.christmas === '1' });
+        const p = db.updatePerson(Number(m[1]), {
+          birthday: birthdayFrom(f),
+          onChristmasList: f.christmas === '1',
+          eventIds: idsFrom(f, 'event_'),
+        });
         return redirect(res, withFlash('/people', `Saved ${p.name}.`));
       } catch (err) {
-        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message, season: season() }));
+        return peoplePage(res, 400, { error: err.message, openId: Number(m[1]) });
+      }
+    }
+    if (req.method === 'GET' && path === '/events') return eventsPage(res, 200, { flash });
+    if (req.method === 'POST' && path === '/events') {
+      const f = await readForm(req);
+      try {
+        const e = db.addEvent(eventFrom(f));
+        return redirect(res, withFlash('/events', `Added ${e.name}.`));
+      } catch (err) {
+        return eventsPage(res, 400, { error: err.message });
+      }
+    }
+    if (req.method === 'POST' && (m = path.match(/^\/events\/(\d+)$/))) {
+      const f = await readForm(req);
+      try {
+        const e = db.updateEvent(Number(m[1]), eventFrom(f));
+        return redirect(res, withFlash('/events', `Saved ${e.name}.`));
+      } catch (err) {
+        return eventsPage(res, 400, { error: err.message, openId: Number(m[1]) });
+      }
+    }
+    if (req.method === 'POST' && (m = path.match(/^\/events\/(\d+)\/delete$/))) {
+      try {
+        const e = db.deleteEvent(Number(m[1]));
+        return redirect(res, withFlash('/events', `Deleted ${e.name}.`));
+      } catch (err) {
+        return eventsPage(res, 400, { error: err.message });
       }
     }
     if (req.method === 'GET' && (m = path.match(/^\/people\/(\d+)$/))) {
       const person = db.getPerson(Number(m[1]));
       if (!person) return send(res, 404, views.notFoundPage({ season: season() }));
-      return send(res, 200, views.personPage({ person, history: personHistory(person.id, db.listGifts()), flash, season: season() }));
+      return send(res, 200, views.personPage({ person, history: personHistory(person.id, db.listGifts()), events: db.listEvents(), flash, season: season() }));
     }
     return send(res, 404, views.notFoundPage({ season: season() }));
   };

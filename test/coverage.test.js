@@ -85,3 +85,19 @@ test('personHistory: blank cost is kept as null', () => {
   const got = personHistory(1, [gift(1, 1, 'christmas', '2026-12-25', { costCents: null })]);
   assert.equal(got[0].costCents, null);
 });
+
+test('coverage: an event covers its list plus anyone who got a gift for it', () => {
+  const ppl = [
+    { id: 1, name: 'Amy', onChristmasList: true, eventIds: [7] },
+    { id: 2, name: 'Ben', onChristmasList: true, eventIds: [] },
+    { id: 3, name: 'Cat', onChristmasList: false, eventIds: [7] },
+  ];
+  const occ = { occasion: 'event', date: '2027-03-01', personId: null, eventId: 7 };
+  const gifts = [
+    { ...gift(1, 2, 'event', '2027-03-01'), eventId: 7 },
+    { ...gift(2, 3, 'event', '2027-03-01'), eventId: 8 }, // another event on the same day
+  ];
+  const got = coverage(occ, ppl, gifts);
+  assert.deepEqual(got.covered.map((c) => c.person.name), ['Ben']);
+  assert.deepEqual(got.missing.map((p) => p.name), ['Amy', 'Cat']);
+});

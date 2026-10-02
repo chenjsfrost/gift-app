@@ -7,12 +7,14 @@ import { occasionLabel } from './views.js';
 export function upcomingSections(db, today, days) {
   const people = db.listPeople();
   const gifts = db.listGifts();
+  const events = db.listEvents();
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
-  return upcomingOccasions(people, today, days).map((occ) => {
+  const eventName = new Map(events.map((e) => [e.id, e.name]));
+  return upcomingOccasions(people, today, days, events).map((occ) => {
     const { covered, missing } = coverage(occ, people, gifts);
     return {
       occ,
-      label: occasionLabel(occ.occasion, occ.date, nameOf.get(occ.personId)),
+      label: occasionLabel(occ.occasion, occ.date, occ.occasion === 'event' ? eventName.get(occ.eventId) : nameOf.get(occ.personId)),
       covered,
       missing: missing.map((person) => ({ person, lastGift: personHistory(person.id, gifts)[0] ?? null })),
     };

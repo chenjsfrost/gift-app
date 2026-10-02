@@ -5,6 +5,7 @@ import {
   occurrenceInYear,
   defaultOccasionDate,
   upcomingOccasions,
+  nextEventDate,
 } from '../src/occasions.js';
 
 test('addDays crosses month and year boundaries', () => {
@@ -83,4 +84,28 @@ test('upcomingOccasions: always returns at least the next occasion', () => {
 test('upcomingOccasions: with nobody on the list there is still Christmas', () => {
   const got = upcomingOccasions([], '2026-10-02', 7);
   assert.deepEqual(got, [{ occasion: 'christmas', date: '2026-12-25', personId: null }]);
+});
+
+test('nextEventDate: a yearly event rolls over; a one-off ends once passed', () => {
+  const yearly = { date: '2026-05-10', repeats: true };
+  const once = { date: '2027-03-01', repeats: false };
+  assert.equal(nextEventDate(yearly, '2026-10-02'), '2027-05-10');
+  assert.equal(nextEventDate(yearly, '2027-05-10'), '2027-05-10');
+  assert.equal(nextEventDate(once, '2026-10-02'), '2027-03-01');
+  assert.equal(nextEventDate(once, '2027-03-02'), null);
+});
+
+test('defaultOccasionDate: events use their own date, with the late-gift rule for yearly ones', () => {
+  assert.equal(defaultOccasionDate('event', '2026-05-20', null, { date: '2020-05-10', repeats: true }), '2026-05-10');
+  assert.equal(defaultOccasionDate('event', '2026-06-01', null, { date: '2020-05-10', repeats: true }), '2027-05-10');
+  assert.equal(defaultOccasionDate('event', '2026-01-01', null, { date: '2027-03-01', repeats: false }), '2027-03-01');
+});
+
+test('upcomingOccasions: custom events appear in the window; past one-offs do not', () => {
+  const events = [
+    { id: 1, date: '2020-11-01', repeats: true },
+    { id: 2, date: '2026-01-01', repeats: false },
+  ];
+  const got = upcomingOccasions([], '2026-10-02', 90, events);
+  assert.deepEqual(got.map((o) => [o.occasion, o.date, o.eventId]), [['event', '2026-11-01', 1], ['christmas', '2026-12-25', undefined]]);
 });
