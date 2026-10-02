@@ -101,5 +101,5 @@ To remove it: `Unregister-ScheduledTask -TaskName "Gift reminder"`.
 
 ## Authors
 
-- Wei Khiang ([@emocado](https://github.com/emocado)), original author
+- Wei Khiang ([@emocado](https://github.com/emocado))
 - [@chenjsfrost](https://github.com/chenjsfrost)
