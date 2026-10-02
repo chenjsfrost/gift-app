@@ -9,6 +9,7 @@ import { upcomingSections, localToday } from './upcoming.js';
 import { parseCost } from './money.js';
 import * as views from './views.js';
 import { createEntryParser } from './ai/parse-entry.js';
+import { SEASONS, seasonFor } from './season.js';
 
 // Wide enough that Christmas shows from late September, when shopping for it starts.
 export const HOME_WINDOW_DAYS = 90;
@@ -39,11 +40,13 @@ function birthdayFrom(f) {
   return `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-export function createApp({ db, today = localToday, parseEntry = null }) {
+export function createApp({ db, today = localToday, parseEntry = null, season: fixedSeason = null }) {
+  // A fixed season (SEASON=winter in .env) previews a theme; otherwise it follows the date.
+  const season = () => SEASONS[fixedSeason] ?? seasonFor(today());
   const peopleNames = () => db.listPeople().map((p) => p.name);
 
   const giftForm = (res, values, extra = {}) =>
-    send(res, extra.status ?? 200, views.giftFormPage({ values, peopleNames: peopleNames(), aiEnabled: !!parseEntry, ...extra }));
+    send(res, extra.status ?? 200, views.giftFormPage({ values, peopleNames: peopleNames(), aiEnabled: !!parseEntry, season: season(), ...extra }));
 
   const emptyValues = () => ({ person: '', what: '', occasion: 'christmas', givenDate: today(), cost: '', occasionDate: '', entry: '' });
 
@@ -105,6 +108,7 @@ export function createApp({ db, today = localToday, parseEntry = null }) {
         sections: upcomingSections(db, today(), HOME_WINDOW_DAYS),
         peopleCount: db.listPeople().length,
         flash,
+        season: season(),
       }));
     }
     if (req.method === 'GET' && path === '/gifts/new') {
@@ -115,12 +119,12 @@ export function createApp({ db, today = localToday, parseEntry = null }) {
     if (req.method === 'POST' && path === '/gifts/parse' && parseEntry) return parseGift(req, res);
     if (req.method === 'POST' && (m = path.match(/^\/gifts\/(\d+)\/delete$/))) {
       const gift = db.getGift(Number(m[1]));
-      if (!gift) return send(res, 404, views.notFoundPage());
+      if (!gift) return send(res, 404, views.notFoundPage({ season: season() }));
       db.deleteGift(gift.id);
       return redirect(res, withFlash(`/people/${gift.personId}`, `Deleted: ${gift.what}.`));
     }
     if (req.method === 'GET' && path === '/people') {
-      return send(res, 200, views.peoplePage({ people: db.listPeople(), flash }));
+      return send(res, 200, views.peoplePage({ people: db.listPeople(), flash, season: season() }));
     }
     if (req.method === 'POST' && path === '/people') {
       const f = await readForm(req);
@@ -128,7 +132,7 @@ export function createApp({ db, today = localToday, parseEntry = null }) {
         const p = db.addPerson({ name: f.name, birthday: birthdayFrom(f), onChristmasList: f.christmas === '1' });
         return redirect(res, withFlash('/people', `Added ${p.name}.`));
       } catch (err) {
-        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message }));
+        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message, season: season() }));
       }
     }
     if (req.method === 'POST' && (m = path.match(/^\/people\/(\d+)$/))) {
@@ -137,15 +141,15 @@ export function createApp({ db, today = localToday, parseEntry = null }) {
         const p = db.updatePerson(Number(m[1]), { birthday: birthdayFrom(f), onChristmasList: f.christmas === '1' });
         return redirect(res, withFlash('/people', `Saved ${p.name}.`));
       } catch (err) {
-        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message }));
+        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message, season: season() }));
       }
     }
     if (req.method === 'GET' && (m = path.match(/^\/people\/(\d+)$/))) {
       const person = db.getPerson(Number(m[1]));
-      if (!person) return send(res, 404, views.notFoundPage());
-      return send(res, 200, views.personPage({ person, history: personHistory(person.id, db.listGifts()), flash }));
+      if (!person) return send(res, 404, views.notFoundPage({ season: season() }));
+      return send(res, 200, views.personPage({ person, history: personHistory(person.id, db.listGifts()), flash, season: season() }));
     }
-    return send(res, 404, views.notFoundPage());
+    return send(res, 404, views.notFoundPage({ season: season() }));
   };
 }
 
@@ -153,7 +157,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const db = openDb(process.env.DB_PATH ?? 'data/gifts.db');
   const port = Number(process.env.PORT ?? 3000);
   const parseEntry = process.env.ANTHROPIC_API_KEY ? createEntryParser() : null;
-  createServer(createApp({ db, parseEntry })).listen(port, '127.0.0.1', () => {
+  createServer(createApp({ db, parseEntry, season: process.env.SEASON })).listen(port, '127.0.0.1', () => {
     console.log(`Gift app running at http://localhost:${port}`);
     if (!parseEntry) console.log('Type-to-log is off: set ANTHROPIC_API_KEY in .env to turn it on.');
   });

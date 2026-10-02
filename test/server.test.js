@@ -130,3 +130,14 @@ test('home on 2 Oct shows both a nearer birthday and Christmas 2026', async () =
   s.close();
   assert.match(html, /Amy&#39;s birthday 2026[\s\S]*Christmas 2026/);
 });
+
+test('pages wear the season for today, or a fixed SEASON override', async () => {
+  const html = (app) => new Promise((resolve) => {
+    const res = { writeHead() {}, end: resolve };
+    app({ method: 'GET', url: '/people', [Symbol.asyncIterator]: async function* () {} }, res);
+  });
+  const db = openDb(':memory:');
+  assert.match(await html(createApp({ db, today: () => '2026-12-10' })), /class="s-winter"[\s\S]*sky-winter/);
+  assert.match(await html(createApp({ db, today: () => '2026-10-02' })), /class="s-autumn"/);
+  assert.match(await html(createApp({ db, today: () => '2026-10-02', season: 'spring' })), /class="s-spring"/);
+});
