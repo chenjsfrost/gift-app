@@ -1,0 +1,19 @@
+{
+  "flow": "type-to-log",
+  "harness_paths": ["src/ai/parse-entry.js", "eval/grade.mjs", "eval/cases.json"],
+  "metrics": [
+    { "id": "all_fields", "kind": "binary", "label": "All fields" },
+    { "id": "no_made_up_cost", "kind": "binary", "label": "No made-up $" },
+    { "id": "person", "kind": "binary", "label": "Person" },
+    { "id": "what", "kind": "binary", "label": "What" },
+    { "id": "occasion", "kind": "binary", "label": "Occasion" },
+    { "id": "cost", "kind": "binary", "label": "Cost" },
+    { "id": "given_date", "kind": "binary", "label": "Date bought" },
+    { "id": "occasion_date", "kind": "binary", "label": "Occasion date" }
+  ],
+  "perf_fields": [
+    { "id": "cost_usd", "label": "Cost", "unit": "$" },
+    { "id": "latency_s", "label": "Latency", "unit": "s" },
+    { "id": "refused", "label": "Refused" }
+  ]
+}
