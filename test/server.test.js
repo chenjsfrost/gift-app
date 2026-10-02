@@ -98,3 +98,24 @@ test('page text is escaped', async () => {
   const eve = db.findPersonByName('<b>Eve</b>');
   assert.doesNotMatch(await get(`/people/${eve.id}`), /<b>Eve<\/b>/);
 });
+
+test('people page: add with birthday, then update; impossible dates are refused', async () => {
+  let res = await post('/people', { name: 'Dan', bday: '29', bmonth: '2', christmas: '1' });
+  assert.equal(res.status, 303);
+  const dan = db.findPersonByName('Dan');
+  assert.deepEqual([dan.birthday, dan.onChristmasList], ['02-29', true]);
+  res = await post(`/people/${dan.id}`, { bday: '5', bmonth: '1' }); // checkbox unticked
+  assert.deepEqual(db.getPerson(dan.id), { ...dan, birthday: '01-05', onChristmasList: false });
+  res = await post(`/people/${dan.id}`, { bday: '31', bmonth: '4' });
+  assert.equal(res.status, 400);
+  res = await post('/people', { name: 'dan' });
+  assert.match(await res.text(), /already on your list/);
+});
+
+test('a birthday gift for someone with a birthday counts for their next birthday', async () => {
+  const fay = db.addPerson({ name: 'Fay', birthday: '12-01' });
+  await post('/gifts', { person: 'Fay', what: 'Plant', occasion: 'birthday' });
+  const g = db.listGifts().find((x) => x.personId === fay.id);
+  assert.equal(g.occasionDate, '2026-12-01');
+  assert.match(await get('/'), /Fay&#39;s birthday 2026[\s\S]*Covered \(1\)[\s\S]*Fay/);
+});

@@ -184,6 +184,43 @@ export function giftFormPage({ values, peopleNames, error, confirmNewPerson, not
   );
 }
 
+function birthdayFields(md) {
+  const [m, d] = md ? md.split('-').map(Number) : [0, 0];
+  const opt = (val, label, sel) => `<option value="${val}" ${sel ? 'selected' : ''}>${label}</option>`;
+  return `<select name="bday" aria-label="Birthday day">${opt('', 'Day', !d)}${Array.from({ length: 31 }, (_, i) => opt(i + 1, i + 1, d === i + 1)).join('')}</select>
+    <select name="bmonth" aria-label="Birthday month">${opt('', 'Month', !m)}${MONTHS.map((n, i) => opt(i + 1, n, m === i + 1)).join('')}</select>`;
+}
+
+export function peoplePage({ people, flash, error }) {
+  const rows = people.length
+    ? people
+        .map(
+          (p) => `<li id="p${p.id}">
+            <form method="post" action="/people/${p.id}">
+              <a href="/people/${p.id}"><strong>${esc(p.name)}</strong></a>
+              <div class="row" style="margin-top:6px">${birthdayFields(p.birthday)}
+                <label><input type="checkbox" name="christmas" value="1" ${p.onChristmasList ? 'checked' : ''}> Christmas list</label>
+                <button type="submit">Save</button></div>
+            </form></li>`,
+        )
+        .join('')
+    : '<li class="muted">Nobody yet.</li>';
+  return layout(
+    'People',
+    `<h1>People</h1>
+     ${error ? flashBox(error, 'error') : ''}
+     <section><h2>Add someone</h2>
+       <form method="post" action="/people">
+         <label for="name">Name</label><input id="name" name="name" required autocomplete="off">
+         <label>Birthday (optional)</label><div class="row">${birthdayFields(null)}</div>
+         <div class="row" style="margin-top:12px"><label><input type="checkbox" name="christmas" value="1" checked> On the Christmas list</label></div>
+         <p><button type="submit">Add</button></p>
+       </form></section>
+     <section><h2>Your list (${people.length})</h2><ul>${rows}</ul></section>`,
+    flash,
+  );
+}
+
 export function notFoundPage() {
   return layout('Not found', '<h1>Not found</h1><p><a href="/">Back home</a></p>');
 }

@@ -29,6 +29,15 @@ const redirect = (res, location) => {
 };
 const withFlash = (path, msg) => `${path}?${new URLSearchParams({ flash: msg })}`;
 
+// Day + month selects -> 'MM-DD', or null when either is blank.
+function birthdayFrom(f) {
+  if (!f.bday || !f.bmonth) return null;
+  const [d, m] = [Number(f.bday), Number(f.bmonth)];
+  const maxDay = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+  if (!maxDay || d < 1 || d > maxDay) throw new Error('That birthday date doesn\'t exist.');
+  return `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 // Upcoming occasions with covered / still-to-buy, shared by the home page and the reminder.
 export function upcomingSections(db, today, days) {
   const people = db.listPeople();
@@ -124,6 +133,27 @@ export function createApp({ db, today = localToday, parseEntry = null }) {
       if (!gift) return send(res, 404, views.notFoundPage());
       db.deleteGift(gift.id);
       return redirect(res, withFlash(`/people/${gift.personId}`, `Deleted: ${gift.what}.`));
+    }
+    if (req.method === 'GET' && path === '/people') {
+      return send(res, 200, views.peoplePage({ people: db.listPeople(), flash }));
+    }
+    if (req.method === 'POST' && path === '/people') {
+      const f = await readForm(req);
+      try {
+        const p = db.addPerson({ name: f.name, birthday: birthdayFrom(f), onChristmasList: f.christmas === '1' });
+        return redirect(res, withFlash('/people', `Added ${p.name}.`));
+      } catch (err) {
+        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message }));
+      }
+    }
+    if (req.method === 'POST' && (m = path.match(/^\/people\/(\d+)$/))) {
+      const f = await readForm(req);
+      try {
+        const p = db.updatePerson(Number(m[1]), { birthday: birthdayFrom(f), onChristmasList: f.christmas === '1' });
+        return redirect(res, withFlash('/people', `Saved ${p.name}.`));
+      } catch (err) {
+        return send(res, 400, views.peoplePage({ people: db.listPeople(), error: err.message }));
+      }
     }
     if (req.method === 'GET' && (m = path.match(/^\/people\/(\d+)$/))) {
       const person = db.getPerson(Number(m[1]));
