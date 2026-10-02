@@ -588,8 +588,26 @@ function occasionCard(today, { occ, label, covered, missing, spentCents = 0, las
     </section>`;
 }
 
+// One compact row per occasion further out: when it is and how much of its list is covered.
+function laterRow(today, { occ, label, covered, missing }) {
+  const prefill = { occasion: occ.occasion === 'event' ? `event:${occ.eventId}` : occ.occasion, occasionDate: occ.date };
+  const total = covered.length + missing.length;
+  const status = !total ? 'Nobody on the list yet' : missing.length ? `${covered.length} of ${total} covered` : `All ${total} covered`;
+  return `<li>${occIcon(occ.occasion, 'sm')}<a class="row-main row-link" href="${esc(giftUrl(prefill))}">
+      <span class="row-text"><span class="row-title">${esc(label)}</span>
+        <span class="row-sub">${formatShort(occ.date)} ${formatDate(occ.date).slice(-4)} · ${whenLabel(today, occ.date)}</span></span>
+      <span class="row-end">${status}</span><span class="chev">${ICONS.chevron}</span></a></li>`;
+}
+
+const laterList = (today, later) =>
+  later.length
+    ? `<h2 class="section-title">Later</h2>
+      <section class="card"><ul class="list">${later.map((s) => laterRow(today, s)).join('')}</ul></section>`
+    : '';
+
 // sections: [{ occ, label, covered, missing, spentCents, lastYearCents }] — missing entries carry lastGift.
-export function homePage({ today, sections, peopleCount, flash, season }) {
+// later: the same shape for occasions further out, shown as one row each.
+export function homePage({ today, sections, later = [], peopleCount, flash, season }) {
   if (peopleCount === 0) {
     return layout({
       title: 'Gifts',
@@ -617,7 +635,8 @@ export function homePage({ today, sections, peopleCount, flash, season }) {
     season,
     body: `<div class="page-head"><div><p class="eyebrow">${formatToday(today)}</p><h1>Coming up</h1><p class="lede">${esc(season.greeting)}</p></div></div>
       ${tiles}
-      ${sections.map((s) => occasionCard(today, s)).join('')}`,
+      ${sections.map((s) => occasionCard(today, s)).join('')}
+      ${laterList(today, later)}`,
   });
 }
 

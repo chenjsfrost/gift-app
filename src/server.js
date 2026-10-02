@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { defaultOccasionDate } from './occasions.js';
 import { personHistory, withDuplicateFlags } from './coverage.js';
-import { upcomingSections, localToday } from './upcoming.js';
+import { upcomingSections, laterSections, localToday } from './upcoming.js';
 import { parseCost } from './money.js';
 import * as views from './views.js';
 import { landingPage } from './landing.js';
@@ -161,9 +161,11 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
     }
 
     if (req.method === 'GET' && path === '/') {
+      const sections = upcomingSections(db, today(), HOME_WINDOW_DAYS);
       return send(res, 200, views.homePage({
         today: today(),
-        sections: upcomingSections(db, today(), HOME_WINDOW_DAYS),
+        sections,
+        later: laterSections(db, today(), HOME_WINDOW_DAYS, sections),
         peopleCount: db.listPeople().length,
         flash,
         season: res.season,

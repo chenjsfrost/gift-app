@@ -1,6 +1,6 @@
 // Upcoming occasions with covered / still-to-buy. One source for both the home page
 // and the reminder email, so a missed email never shows something the app doesn't.
-import { upcomingOccasions } from './occasions.js';
+import { addDays, upcomingOccasions } from './occasions.js';
 import { coverage, personHistory } from './coverage.js';
 import { occasionLabel } from './views.js';
 
@@ -42,6 +42,15 @@ export function upcomingSections(db, today, days) {
       lastYearCents: lastYear.some((g) => g.costCents !== null) ? sumCents(lastYear) : null,
     };
   });
+}
+
+// Occasions after the home page's detailed window, up to `days` ahead, so you can plan
+// further out. `shown` are the sections already on the page; none is listed twice.
+const keyOf = ({ occ }) => [occ.occasion, occ.date, occ.personId, occ.eventId].join('|');
+export function laterSections(db, today, afterDays, shown = [], days = 365) {
+  const end = addDays(today, afterDays - 1);
+  const seen = new Set(shown.map(keyOf));
+  return upcomingSections(db, today, days).filter((s) => s.occ.date > end && !seen.has(keyOf(s)));
 }
 
 export const localToday = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time

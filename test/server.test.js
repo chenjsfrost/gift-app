@@ -205,3 +205,11 @@ test('season menu: a pick is kept in a cookie and wins over the date; Automatic 
   assert.match(res.headers.get('set-cookie'), /^season=; Max-Age=0/);
   assert.match(await get('/people'), /class="s-autumn"[\s\S]*value="auto" role="menuitemradio" aria-checked="true"/);
 });
+
+test('home lists occasions further out under Later, with how much is covered', async () => {
+  const ev = db.addEvent({ name: 'Graduation', date: '2027-06-20', repeats: false });
+  db.addPerson({ name: 'Ivy', eventIds: [ev.id] });
+  const html = await get('/');
+  assert.match(html, /Later[\s\S]*Graduation 2027[\s\S]*0 of 1 covered/);
+  assert.match(html, new RegExp(`occasion=event%3A${ev.id}&amp;occasionDate=2027-06-20`));
+});

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from '../src/db.js';
-import { lastGiftBefore, upcomingSections } from '../src/upcoming.js';
+import { lastGiftBefore, upcomingSections, laterSections } from '../src/upcoming.js';
 
 const gift = (what, occasion, occasionDate, eventId = null) => ({ what, occasion, occasionDate, eventId });
 
@@ -33,4 +33,20 @@ test('upcomingSections: spend so far and the same occasion last year', () => {
   const [bday, xmas] = upcomingSections(db, '2026-10-02', 90);
   assert.deepEqual([xmas.spentCents, xmas.lastYearCents], [12900, 4500]);
   assert.deepEqual([bday.spentCents, bday.lastYearCents], [0, null]); // no price logged last year
+});
+
+test('laterSections: occasions after the window up to a year ahead, none listed twice', () => {
+  const db = openDb(':memory:');
+  db.addPerson({ name: 'Amy', birthday: '03-14' });
+  db.addEvent({ name: 'Lunar New Year', date: '2027-02-06', repeats: false });
+  db.addEvent({ name: 'Far off', date: '2028-01-01', repeats: false });
+  const today = '2026-10-02';
+  const shown = upcomingSections(db, today, 90);
+  assert.deepEqual(shown.map((s) => s.label), ['Christmas 2026']);
+  assert.deepEqual(laterSections(db, today, 90, shown).map((s) => s.label), ['Lunar New Year 2027', "Amy's birthday 2027"]);
+  // With nothing in the window the home page shows the next occasion; Later skips it.
+  const quiet = '2027-01-01';
+  const next = upcomingSections(db, quiet, 20);
+  assert.deepEqual(next.map((s) => s.label), ['Lunar New Year 2027']);
+  assert.deepEqual(laterSections(db, quiet, 20, next).map((s) => s.label), ["Amy's birthday 2027", 'Christmas 2027']);
 });
