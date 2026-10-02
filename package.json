@@ -1,0 +1,16 @@
+{
+  "name": "gift-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One place to check who got what, when, and for how much, before the next occasion.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --test \"test/*.test.js\"",
+    "remind": "node --env-file-if-exists=.env src/remind-cli.js",
+    "eval": "node --env-file-if-exists=.env eval/run-eval.js"
+  }
+}
