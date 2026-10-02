@@ -14,6 +14,7 @@
     "eval": "node --env-file-if-exists=.env eval/run-eval.mjs --flow .claude/hillclimb/type-to-log --variant baseline --model claude-opus-5-5"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0"
+    "@anthropic-ai/sdk": "^0.131.0",
+    "nodemailer": "^10.0.13"
   }
 }

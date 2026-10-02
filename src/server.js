@@ -3,15 +3,15 @@
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
-import { defaultOccasionDate, upcomingOccasions } from './occasions.js';
-import { coverage, personHistory, withDuplicateFlags } from './coverage.js';
+import { defaultOccasionDate } from './occasions.js';
+import { personHistory, withDuplicateFlags } from './coverage.js';
+import { upcomingSections, localToday } from './upcoming.js';
 import { parseCost } from './money.js';
 import * as views from './views.js';
 import { createEntryParser } from './ai/parse-entry.js';
 
 export const HOME_WINDOW_DAYS = 60;
 
-const localToday = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 
 async function readForm(req) {
   let body = '';
@@ -36,22 +36,6 @@ function birthdayFrom(f) {
   const maxDay = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
   if (!maxDay || d < 1 || d > maxDay) throw new Error('That birthday date doesn\'t exist.');
   return `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-}
-
-// Upcoming occasions with covered / still-to-buy, shared by the home page and the reminder.
-export function upcomingSections(db, today, days) {
-  const people = db.listPeople();
-  const gifts = db.listGifts();
-  const nameOf = new Map(people.map((p) => [p.id, p.name]));
-  return upcomingOccasions(people, today, days).map((occ) => {
-    const { covered, missing } = coverage(occ, people, gifts);
-    return {
-      occ,
-      label: views.occasionLabel(occ.occasion, occ.date, nameOf.get(occ.personId)),
-      covered,
-      missing: missing.map((person) => ({ person, lastGift: personHistory(person.id, gifts)[0] ?? null })),
-    };
-  });
 }
 
 export function createApp({ db, today = localToday, parseEntry = null }) {

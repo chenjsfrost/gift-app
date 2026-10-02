@@ -13,15 +13,59 @@ One place to check who you gave what to, when you gave it, and roughly how much 
 
 ## Run
 
-Needs Node 24 or newer. It runs locally on your PC.
+Needs Node 24 or newer. It runs on your PC only, at http://localhost:3000.
 
 ```
 npm install
-cp .env.example .env    # then fill it in
-npm start               # http://localhost:3000
-npm test                # tests for the core logic
-npm run remind          # send the reminder email now
-npm run eval            # score the type-to-log feature (calls Claude, about $0.50 a run)
+copy .env.example .env      # then fill it in
+npm start                   # open http://localhost:3000
+npm test                    # tests for the core logic (free, no network)
 ```
 
-Amounts are shown in SGD.
+Amounts are in SGD. Data is stored in `data/gifts.db` (one SQLite file, not committed). Back it up by copying that file.
+
+## Type-to-log (Claude)
+
+With `ANTHROPIC_API_KEY` set in `.env`, the Add a gift page gets a box where you type one line, like `scarf for Amy, xmas, 25`. Claude (`claude-opus-5-5`) fills in the form and you check it before saving.
+
+- Plain code, not the model, enforces three rules. A cost that isn't in what you typed is dropped. Names are matched to your list. Malformed dates are blanked.
+- If Claude is slow, fails or isn't set up, the normal form still works. Without the key, the box doesn't appear.
+- A refused request is retried on another model automatically (`fallbacks: "default"`).
+
+## Evaluation: how well type-to-log reads your notes
+
+`eval/cases.json` holds 42 typed notes with the answers they should produce (see `eval/CASES.md`). The grader (`eval/grade.mjs`) is plain code, with no AI judge. It scores:
+
+- **All fields:** the headline. Every field is right.
+- **No made-up $:** the guardrail, which must stay at 100%. No cost appears that the note never stated.
+- Each field on its own: person, what, occasion, cost, date bought, occasion date.
+
+```
+npm run eval -- --approve-harness   # first run only, after you have reviewed the eval files
+npm run eval                        # calls Claude once per case; resumes if interrupted
+```
+
+Results go to `.claude/hillclimb/type-to-log/baseline/` (`results.jsonl`, plus `traces/` with the full request and response for each case). The runner refuses to run again if the prompt, grader, cases or runner change, until you approve them again with `--approve-harness`. That way a changed eval never runs without you noticing.
+
+## Reminder email
+
+```
+npm run remind -- --dry-run   # print the email
+npm run remind                # send it (needs the SMTP_* and REMIND_TO settings in .env)
+```
+
+It lists everyone still to buy for in the next `REMIND_DAYS` (default 30), with what they got last time. If nothing is open, no email is sent. The home page shows the same list, so a missed email never means a missed gift.
+
+For Gmail, create an app password at https://myaccount.google.com/apppasswords and use it as `SMTP_PASS`.
+
+**Send it every Sunday at 9am** (run once in PowerShell, from this folder). `-StartWhenAvailable` means a run missed while the PC was off happens the next time it's on:
+
+```powershell
+$dir = (Get-Location).Path
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c cd /d `"$dir`" && npm run remind >> data\remind.log 2>&1"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 9am
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName "Gift reminder" -Action $action -Trigger $trigger -Settings $settings
+```
+
+To remove it: `Unregister-ScheduledTask -TaskName "Gift reminder"`.
