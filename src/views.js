@@ -961,27 +961,34 @@ function eventFields(e, people) {
 }
 
 export function eventsPage({ events, people, today, flash, error, season, openId = null }) {
-  const rows = events.length
-    ? events
-        .map((e) => {
-          const next = nextEventDate(e, today);
-          const members = people.filter((p) => p.eventIds?.includes(e.id));
-          const nextBit = e.repeats ? ` · next ${formatShort(next ?? e.date)}` : '';
-          const when = next ? `${nextBit}<span class="when">${whenLabel(today, next)}</span>` : ' · already passed';
-          return `<li id="e${e.id}" style="display:block;padding:0">
-            <div style="display:flex;align-items:center;gap:12px;padding-left:20px">${occIcon('event')}<div class="row-main">
-              <span class="row-text"><span class="row-title">${esc(e.name)}</span>
-                <span class="row-sub">${esc(repeatLabel(e))}${when}</span>
-                <span class="row-sub">${members.length ? members.map((p) => esc(p.name)).join(', ') : 'Nobody on this list yet'}</span></span>
-              <span class="row-end">${plural(members.length, 'person').replace('persons', 'people')}</span></div></div>
-            <details class="row-edit" ${openId === e.id ? 'open' : ''}><summary>${ICONS.chevron} Edit event and list</summary>
-              <div class="inner"><form method="post" action="/events/${e.id}" class="stack">${eventFields(e, people)}
-                <div><button type="submit">Save</button></div></form>
-              <form method="post" action="/events/${e.id}/delete" data-confirm="${esc(`Delete ${e.name}?`)}"><button class="danger" type="submit">Delete this event</button></form></div>
-            </details></li>`;
-        })
-        .join('')
-    : '<li class="empty-row">No events yet. Christmas and birthdays are already built in.</li>';
+  const eventRow = (e) => {
+    const next = nextEventDate(e, today);
+    const members = people.filter((p) => p.eventIds?.includes(e.id));
+    const nextBit = e.repeats ? ` · next ${formatShort(next ?? e.date)}` : '';
+    const when = next ? `${nextBit}<span class="when">${whenLabel(today, next)}</span>` : ' · already passed';
+    return `<li id="e${e.id}" style="display:block;padding:0">
+      <div style="display:flex;align-items:center;gap:12px;padding-left:20px">${occIcon('event')}<div class="row-main">
+        <span class="row-text"><span class="row-title">${esc(e.name)}</span>
+          <span class="row-sub">${esc(repeatLabel(e))}${when}</span>
+          <span class="row-sub">${members.length ? members.map((p) => esc(p.name)).join(', ') : 'Nobody on this list yet'}</span></span>
+        <span class="row-end">${plural(members.length, 'person').replace('persons', 'people')}</span></div></div>
+      <details class="row-edit" ${openId === e.id ? 'open' : ''}><summary>${ICONS.chevron} Edit event and list</summary>
+        <div class="inner"><form method="post" action="/events/${e.id}" class="stack">${eventFields(e, people)}
+          <div><button type="submit">Save</button></div></form>
+        <form method="post" action="/events/${e.id}/delete" data-confirm="${esc(`Delete ${e.name}?`)}"><button class="danger" type="submit">Delete this event</button></form></div>
+      </details></li>`;
+  };
+  // One-off events that have passed move to their own list, kept for editing or deleting.
+  const current = events.filter((e) => nextEventDate(e, today));
+  const past = events.filter((e) => !nextEventDate(e, today));
+  const rows = current.length
+    ? current.map(eventRow).join('')
+    : '<li class="empty-row">No events coming up. Christmas and birthdays are already built in.</li>';
+  const pastList = past.length
+    ? `<h2 class="section-title">Past (${past.length})</h2>
+      <p class="muted small" style="margin:-6px 0 12px">One-off events that are over. They no longer show when you log a gift or pick someone's lists.</p>
+      <section class="card"><ul class="list">${past.map(eventRow).join('')}</ul></section>`
+    : '';
   return layout({
     title: 'Events',
     active: 'events',
@@ -992,8 +999,9 @@ export function eventsPage({ events, people, today, flash, error, season, openId
       <section class="card card-pad"><h2 style="margin-bottom:14px">Add an event</h2>
         <form method="post" action="/events" class="stack">${eventFields(null, people)}
           <div><button type="submit">${ICONS.plus} Add event</button></div></form></section>
-      <h2 class="section-title">Your events (${events.length})</h2>
-      <section class="card"><ul class="list">${rows}</ul></section>`,
+      <h2 class="section-title">Your events (${current.length})</h2>
+      <section class="card"><ul class="list">${rows}</ul></section>
+      ${pastList}`,
   });
 }
 

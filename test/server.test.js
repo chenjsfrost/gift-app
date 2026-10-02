@@ -250,3 +250,21 @@ test('home and landing link to the sharing preview, which hides gifts for occasi
   assert.match(html, /What Amy would see[\s\S]*1 gift for an occasion still to come stays hidden/);
   assert.doesNotMatch(html, /action="\/(gifts|received)\/\d+\/delete"/);
 });
+
+test('a one-off event that has passed drops out of the pickers; yearly ones stay', async () => {
+  const gone = db.addEvent({ name: 'Open house', date: '2026-11-01', repeats: false });
+  const yearly = db.addEvent({ name: 'Teachers Day', date: '2020-09-04', repeats: true });
+  const jun = db.addPerson({ name: 'Jun', eventIds: [gone.id, yearly.id] });
+
+  const form = await get('/gifts/new');
+  assert.doesNotMatch(form, new RegExp(`event:${gone.id}"`));
+  assert.match(form, new RegExp(`event:${yearly.id}"`));
+  const people = await get('/people');
+  assert.doesNotMatch(people, /Open house/);
+  assert.match(people, /Teachers Day/);
+  assert.match(await get('/events'), /Past \(\d+\)[\s\S]*Open house/);
+
+  // Saving Jun without the hidden toggle keeps them on the past event's list.
+  await post(`/people/${jun.id}`, { christmas: '1' });
+  assert.deepEqual(db.getPerson(jun.id).eventIds, [gone.id]);
+});

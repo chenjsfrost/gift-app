@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
-import { defaultOccasionDate } from './occasions.js';
+import { defaultOccasionDate, nextEventDate } from './occasions.js';
 import { personHistory, withDuplicateFlags } from './coverage.js';
 import { upcomingSections, laterSections, localToday } from './upcoming.js';
 import { parseCost } from './money.js';
@@ -82,11 +82,19 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
   };
   const peopleNames = () => db.listPeople().map((p) => p.name);
 
+  // A one-off event drops out of the pickers once it has passed; yearly ones always stay.
+  const currentEvents = () => db.listEvents().filter((e) => nextEventDate(e, today()) !== null);
+  // Past events have no toggle, so saving someone keeps them on those lists.
+  const keepPastEvents = (person, ticked) => {
+    const current = new Set(currentEvents().map((e) => e.id));
+    return [...ticked, ...person.eventIds.filter((id) => !current.has(id))];
+  };
+
   const giftForm = (res, values, extra = {}) =>
-    send(res, extra.status ?? 200, views.giftFormPage({ values, peopleNames: peopleNames(), events: db.listEvents(), aiEnabled: !!parseEntry, season: res.season, ...extra }));
+    send(res, extra.status ?? 200, views.giftFormPage({ values, peopleNames: peopleNames(), events: currentEvents(), aiEnabled: !!parseEntry, season: res.season, ...extra }));
 
   const peoplePage = (res, status, extra = {}) =>
-    send(res, status, views.peoplePage({ people: db.listPeople(), gifts: db.listGifts(), received: db.listReceived(), events: db.listEvents(), season: res.season, ...extra }));
+    send(res, status, views.peoplePage({ people: db.listPeople(), gifts: db.listGifts(), received: db.listReceived(), events: currentEvents(), season: res.season, ...extra }));
   const eventsPage = (res, status, extra = {}) =>
     send(res, status, views.eventsPage({ events: db.listEvents(), people: db.listPeople(), today: today(), season: res.season, ...extra }));
   const eventFrom = (f) => ({ name: f.name, date: f.date, repeats: f.repeats === '1', personIds: idsFrom(f, 'person_') });
@@ -207,7 +215,7 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
           history: personHistory(person.id, db.listGifts()),
           received: db.listReceived().filter((r) => r.personId === person.id),
           today: today(),
-          events: db.listEvents(),
+          events: currentEvents(),
           flash,
           season: res.season,
           ...extra,
@@ -228,7 +236,7 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
       if (req.method === 'GET') return send(res, 200, page());
       const f = await readForm(req);
       try {
-        db.updatePerson(person.id, { birthday: birthdayFrom(f), onChristmasList: f.christmas === '1', eventIds: idsFrom(f, 'event_') });
+        db.updatePerson(person.id, { birthday: birthdayFrom(f), onChristmasList: f.christmas === '1', eventIds: keepPastEvents(person, idsFrom(f, 'event_')) });
         return redirect(res, withFlash(`/people/${person.id}`, 'Saved.'));
       } catch (err) {
         return send(res, 400, page({ error: err.message }));
