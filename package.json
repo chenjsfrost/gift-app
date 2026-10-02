@@ -12,5 +12,8 @@
     "test": "node --test \"test/*.test.js\"",
     "remind": "node --env-file-if-exists=.env src/remind-cli.js",
     "eval": "node --env-file-if-exists=.env eval/run-eval.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
   }
 }
