@@ -285,7 +285,7 @@ const DEMO_SCRIPT = `<script>(() => {
 const demoSection = (site) => `
 <section class="demo reveal" id="demo">
   <h2 class="section-head">See it in action.</h2>
-  <video src="${site.video}" poster="${site.poster}" controls muted loop playsinline preload="metadata" aria-label="A 30-second tour of the app"></video>
+  <video src="${site.video}" poster="${site.poster}" controls loop playsinline preload="metadata" aria-label="A 30-second tour of the app"></video>
   <p>Recorded from the real app, with made-up people and gifts. It runs on your own PC, so your list stays yours.</p>
 </section>`;
 

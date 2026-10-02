@@ -1,7 +1,7 @@
 // The landing page's demo video: the screenshots from capture.sh in a browser window,
 // a slow camera move on each, and a caption above. Positions are CSS pixels of the
 // app's 1440×900 viewport, the size capture.sh shoots at.
-import { AbsoluteFill, Easing, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, Easing, Img, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { TransitionSeries, linearTiming } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { loadFont } from '@remotion/google-fonts/Inter';
@@ -172,18 +172,29 @@ const SCENES = [
   [100, (d) => <ShotScene dur={d} name="06-people" url="/people" title="Everyone's spend and balance at a glance." from={WIDE} to={close(250)} />],
   [95, (d) => <ShotScene dur={d} name="08-events" url="/events" title="Christmas and birthdays built in. Add your own events." from={WIDE} to={close(40)} />],
   [130, (d) => <SeasonsScene dur={d} />],
-  [100, () => <Title sub="github.com/emocado/gift-app">Runs on your own PC. Your list stays yours.</Title>],
+  [100, () => <Title sub="github.com/chenjsfrost/gift-app">Runs on your own PC. Your list stays yours.</Title>],
 ];
 
 export const DURATION = SCENES.reduce((t, [d]) => t + d, 0) - (SCENES.length - 1) * FADE;
 
+// Each scene's voice line (public/voice/NN.wav, made with macOS `say -v Samantha`) starts just after the scene does.
+const VOICE_DELAY = 8;
+const starts = SCENES.map((_, i) => SCENES.slice(0, i).reduce((t, [d]) => t + d, 0) - i * FADE);
+
 export const Demo = () => (
-  <TransitionSeries>
-    {SCENES.flatMap(([d, render], i) => [
-      i > 0 && <TransitionSeries.Transition key={`fade-${i}`} presentation={fade()} timing={linearTiming({ durationInFrames: FADE })} />,
-      <TransitionSeries.Sequence key={`scene-${i}`} durationInFrames={d}>
-        {render(d)}
-      </TransitionSeries.Sequence>,
-    ]).filter(Boolean)}
-  </TransitionSeries>
+  <AbsoluteFill>
+    <TransitionSeries>
+      {SCENES.flatMap(([d, render], i) => [
+        i > 0 && <TransitionSeries.Transition key={`fade-${i}`} presentation={fade()} timing={linearTiming({ durationInFrames: FADE })} />,
+        <TransitionSeries.Sequence key={`scene-${i}`} durationInFrames={d}>
+          {render(d)}
+        </TransitionSeries.Sequence>,
+      ]).filter(Boolean)}
+    </TransitionSeries>
+    {starts.map((from, i) => (
+      <Sequence key={`voice-${i}`} from={from + (i ? VOICE_DELAY : 4)} layout="none">
+        <Audio src={staticFile(`voice/${String(i).padStart(2, '0')}.wav`)} />
+      </Sequence>
+    ))}
+  </AbsoluteFill>
 );
