@@ -494,14 +494,56 @@ export const FONT_LINKS = `<link rel="preconnect" href="https://fonts.googleapis
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">`;
 
 // The app's top bar: logo, tabs and Add a gift. wide matches the landing page's width.
-export function topbar({ active = '', season, wide = false }) {
+// site: the static site on GitHub Pages (see scripts/build-site.mjs), which has no app
+// to link to, so its tabs are its own pages and the button goes to the code.
+export function topbar({ active = '', season, wide = false, site = null }) {
   const tab = (href, name, label) => `<a href="${href}" class="${active === name ? 'on' : ''}">${label}</a>`;
+  const tabs = site
+    ? `${tab(site.home, 'home', 'Home')}${tab(`${site.home}#demo`, 'demo', 'Demo')}${tab(site.preview, 'preview', 'Sharing')}`
+    : `${tab('/', 'home', 'Home')}${tab('/people', 'people', 'People')}${tab('/events', 'events', 'Events')}`;
   return `<header class="topbar"><div class="wrap${wide ? ' wide' : ''}">
-  <a class="brand" href="/welcome"><span class="brand-mark">${ICONS.gift}</span><span class="name">Gift</span></a>
+  <a class="brand" href="${site ? site.home : '/welcome'}"><span class="brand-mark">${ICONS.gift}</span><span class="name">Gift</span></a>
   ${seasonMenu(season)}
-  <nav class="tabs" aria-label="Main">${tab('/', 'home', 'Home')}${tab('/people', 'people', 'People')}${tab('/events', 'events', 'Events')}</nav>
-  <a class="btn sm" href="/gifts/new">${ICONS.plus} Add a gift</a>
+  <nav class="tabs" aria-label="Main">${tabs}</nav>
+  ${site ? `<a class="btn sm" href="${site.code}">Get the code</a>` : `<a class="btn sm" href="/gifts/new">${ICONS.plus} Add a gift</a>`}
 </div></header>`;
+}
+
+// The static site has no server to remember a season pick, so the menu swaps the look
+// in the page and this browser keeps the pick. Automatic is the season it was built in.
+export function siteScript(season) {
+  const seasons = Object.fromEntries(Object.values(SEASONS).map(({ key, emoji, greeting }) => [key, { emoji, greeting }]));
+  return `<script>(() => {
+  const SEASONS = ${JSON.stringify(seasons)}, AUTO = ${JSON.stringify(season.key)};
+  const menu = document.querySelector('.season-menu');
+  function apply(pick) {
+    const key = SEASONS[pick] ? pick : AUTO, s = SEASONS[key];
+    document.body.className = document.body.className.replace(/\\bs-\\w+/, 's-' + key);
+    document.querySelector('.sky').className = 'sky sky-' + key;
+    document.querySelector('.pile').className = 'pile pile-' + key;
+    const summary = menu.querySelector('summary');
+    summary.firstChild.textContent = s.emoji;
+    summary.setAttribute('aria-label', 'Season look: ' + key);
+    const greeting = document.querySelector('[data-greeting]');
+    if (greeting) greeting.textContent = s.emoji + ' ' + s.greeting;
+    const items = menu.querySelectorAll('.menu-item'), check = menu.querySelector('.menu-item svg');
+    for (const item of items) {
+      const on = item.value === (SEASONS[pick] ? pick : 'auto');
+      item.setAttribute('aria-checked', on);
+      if (on && check) item.append(check);
+    }
+  }
+  menu.querySelector('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const pick = e.submitter && e.submitter.value;
+    try { SEASONS[pick] ? localStorage.setItem('season', pick) : localStorage.removeItem('season'); } catch {}
+    apply(pick);
+    menu.open = false;
+  });
+  let saved = null;
+  try { saved = localStorage.getItem('season'); } catch {}
+  if (SEASONS[saved]) apply(saved);
+})();</script>`;
 }
 
 // "Automatic" follows the date (or SEASON in .env); picking one keeps it on this browser.
@@ -523,7 +565,7 @@ export function seasonMenu(season) {
     </form></details>`;
 }
 
-function layout({ title, active = '', body, flash = '', season = seasonFor(new Date().toLocaleDateString('en-CA')) }) {
+function layout({ title, active = '', body, flash = '', season = seasonFor(new Date().toLocaleDateString('en-CA')), site = null }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -536,12 +578,13 @@ ${FONT_LINKS}
 </head>
 <body class="s-${season.key}">
 ${sky(season)}
-${topbar({ active, season })}
+${topbar({ active, season, site })}
 <main class="wrap">
 ${flash}
 ${body}
 </main>
 <script>${SCRIPT}</script>
+${site ? siteScript(season) : ''}
 </body>
 </html>`;
 }
@@ -664,15 +707,17 @@ const sharingTeaser = () => `<section class="card teaser"><div class="mark">${IC
     <a class="btn soft" href="/preview/sharing">See a preview</a></section>`;
 
 // The planned sharing feature, shown with made-up data from sharing-preview.js.
-// given: your gifts to the friend. received: the friend's gifts to you.
-export function sharingPreviewPage({ today, friend, given, received, season }) {
+// given: your gifts to the friend. received: the friend's gifts to you. site: see topbar.
+export function sharingPreviewPage({ today, friend, given, received, season, site = null }) {
   const f = esc(friend);
   const shown = visibleToFriend(given, today);
   const hidden = given.length - shown.length;
   const ro = { readOnly: true };
   return layout({
     title: 'Share with friends',
+    active: 'preview',
     season,
+    site,
     body: `<div class="page-head"><div><p class="eyebrow">Coming soon</p><h1>Share with friends</h1>
         <p class="lede">Invite a friend and you both keep one record: what you gave them, what they gave you, and who’s ahead.</p></div></div>
       ${flashBox('This is a preview with made-up data. Sharing isn’t built yet, and nothing on this page is saved.', 'info')}
@@ -693,7 +738,7 @@ export function sharingPreviewPage({ today, friend, given, received, season }) {
       <section class="card"><div class="group-label" style="padding-top:18px">Gifts from you</div>
         <ul class="list">${shown.map((g) => historyRow(g, ro)).join('')}</ul>
         ${hidden ? `<div class="empty-row">${plural(hidden, 'gift')} for an occasion still to come ${hidden === 1 ? 'stays' : 'stay'} hidden until the day.</div>` : ''}</section>
-      <p class="hint" style="margin-top:20px"><a href="/">Back to home</a></p>`,
+      <p class="hint" style="margin-top:20px"><a href="${site ? site.home : '/'}">Back to home</a></p>`,
   });
 }
 

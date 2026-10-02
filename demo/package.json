@@ -1,0 +1,22 @@
+{
+  "name": "gift-app-demo",
+  "private": true,
+  "description": "The landing page's demo video: Playwright CLI screenshots of the app, cut together with Remotion.",
+  "type": "module",
+  "scripts": {
+    "capture": "bash capture.sh",
+    "studio": "remotion studio src/index.jsx",
+    "render": "remotion render src/index.jsx Demo out/demo.mp4 --codec=h264 --crf=26 && remotion still src/index.jsx Demo out/demo-poster.jpg --frame=290 --image-format=jpeg"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "@remotion/google-fonts": "4.0.532",
+    "@remotion/transitions": "4.0.532",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@playwright/cli": "0.1.22"
+  }
+}

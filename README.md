@@ -47,6 +47,12 @@ The idea: today you type in what friends gave you yourself. With sharing, a frie
 
 What it needs that the app doesn't have yet: hosting (it runs on your PC only today), accounts and logins, invite links, and a way to link "Amy" on your list to Amy's account. The data won't need to change. Each gift a friend logs for you becomes a row in the same `received` table that you fill in by hand today, and the rule for what a friend can see is already written (`visibleToFriend` in `src/balance.js`).
 
+## Landing page on GitHub Pages
+
+The landing page and a demo video are published at https://emocado.github.io/gift-app/. Only the page is online; the app itself still runs on your PC. `npm run build:site` writes it to `_site/`, and `.github/workflows/pages.yml` deploys it on every push to main and once a day, so the Christmas countdown stays current. On the site the season menu works in the browser.
+
+The video lives in `demo/`, its own project. `npm run capture` takes screenshots of the running app with Playwright CLI, on a copy of a database (`DEMO_DB`, default `data/gifts.db`), and `npm run render` turns them into `demo/out/demo.mp4` with Remotion. Run `npm install` in `demo/` first.
+
 ## Type-to-log (AI)
 
 With `OPENCODE_API_KEY` set in `.env` (an [OpenCode Zen](https://opencode.ai/zen) key), the Add a gift page gets a box where you type one line, like `scarf for Amy, xmas, 25`. The model (`deepseek-v4.1-flash` by default) fills in the form and you check it before saving.

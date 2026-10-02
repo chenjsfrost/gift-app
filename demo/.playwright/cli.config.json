@@ -1,0 +1,12 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "contextOptions": {
+      "viewport": { "width": 1440, "height": 900 },
+      "deviceScaleFactor": 2,
+      "colorScheme": "light",
+      "locale": "en-SG",
+      "timezoneId": "Asia/Singapore"
+    }
+  }
+}

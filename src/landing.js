@@ -4,7 +4,7 @@
 // card flips to covered; then everything packs back into the box and re-wraps.
 // It uses the app's own look (tokens, type, buttons and top bar from views.js); the
 // stage takes a tint of the season. Reduced motion gets a still frame.
-import { esc, BASE_CSS, SKY_CSS, FAVICON, FONT_LINKS, sky, topbar } from './views.js';
+import { esc, BASE_CSS, SKY_CSS, FAVICON, FONT_LINKS, sky, topbar, siteScript } from './views.js';
 import { daysBetween, nextOccurrence } from './occasions.js';
 
 const TYPED = 'candle set for Amy, xmas, 32';
@@ -266,9 +266,30 @@ const PAGE_CSS = `
     }
   }
   @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+  /* The demo video, on the static site only. */
+  .demo { margin-bottom: 72px; scroll-margin-top: 80px; }
+  .demo video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 22px; background: var(--card); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .3), var(--shadow); border: .5px solid var(--card-line); }
+  .demo p { text-align: center; color: var(--fg2); font-size: 15px; margin: 14px auto 0; max-width: 60ch; }
 `;
 
-export function landingPage({ today, season }) {
+// The demo plays while it's on screen, unless the viewer asks for reduced motion.
+const DEMO_SCRIPT = `<script>(() => {
+  const v = document.querySelector('.demo video');
+  if (!v || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  new IntersectionObserver(([e]) => (e.isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.5 }).observe(v);
+})();</script>`;
+
+// site: the static site on GitHub Pages (scripts/build-site.mjs). It adds the demo video,
+// and points the buttons at the demo and the code instead of the app.
+const demoSection = (site) => `
+<section class="demo reveal" id="demo">
+  <h2 class="section-head">See it in action.</h2>
+  <video src="${site.video}" poster="${site.poster}" controls muted loop playsinline preload="metadata" aria-label="A 30-second tour of the app"></video>
+  <p>Recorded from the real app, with made-up people and gifts. It runs on your own PC, so your list stays yours.</p>
+</section>`;
+
+export function landingPage({ today, season, site = null }) {
   const xmas = nextOccurrence('christmas', today);
   const days = daysBetween(today, xmas);
   const year = xmas.slice(0, 4);
@@ -290,22 +311,25 @@ ${SKY_CSS}
 </head>
 <body class="s-${season.key}">
 ${sky(season)}
-${topbar({ season, wide: true })}
+${topbar({ season, wide: true, site })}
 <main class="wrap wide landing">
 
 <section class="hero">
   <div>
-    <p class="eyebrow">${season.emoji} ${esc(season.greeting)}</p>
+    <p class="eyebrow" data-greeting>${season.emoji} ${esc(season.greeting)}</p>
     <h1>Never wonder <em>“what did I get them last time?”</em> again.</h1>
     <p class="lede">One place for who got what, when, and roughly how much, so the next occasion starts from your list instead of your memory.</p>
     <div class="ctas">
-      <a class="btn lg" href="/gifts/new">Log your first gift</a>
-      <a class="btn soft lg" href="/people">Add your people</a>
+      ${site
+        ? `<a class="btn lg" href="#demo">Watch the demo</a>
+      <a class="btn soft lg" href="${site.code}#run">Run it on your PC</a>`
+        : `<a class="btn lg" href="/gifts/new">Log your first gift</a>
+      <a class="btn soft lg" href="/people">Add your people</a>`}
     </div>
   </div>
   ${film(days, year)}
 </section>
-
+${site ? demoSection(site) : ''}
 <h2 class="section-head reveal">Built for the week before the occasion.</h2>
 <div class="features">
   <div class="feature reveal"><div class="ico">🗂️</div><h3>Last time, at a glance</h3>
@@ -329,15 +353,16 @@ ${topbar({ season, wide: true })}
     <h3>Share with friends</h3>
     <p>Invite a friend and you both keep one record: what you gave each other, and who's ahead, so you know when the next gift should be a bigger one. Gifts for an occasion still to come stay hidden until the day.</p>
   </div>
-  <a class="btn soft" href="/preview/sharing">See a preview</a>
+  <a class="btn soft" href="${site ? site.preview : '/preview/sharing'}">See a preview</a>
 </section>
 
 <section class="countdown reveal">
   <div class="big">${days === 0 ? 'Today!' : `${days} day${days === 1 ? '' : 's'}`}</div>
   <p>${days === 0 ? `It's Christmas ${year}. Merry Christmas!` : `until Christmas ${year}. Get everyone on the list before the rush.`}</p>
-  <a class="btn lg" href="/gifts/new">Start my Christmas ${year} list</a>
+  <a class="btn lg" href="${site ? `${site.code}#run` : '/gifts/new'}">Start my Christmas ${year} list</a>
 </section>
 </main>
+${site ? siteScript(season) + DEMO_SCRIPT : ''}
 </body>
 </html>`;
 }

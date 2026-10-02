@@ -11,7 +11,8 @@
     "start": "node --env-file-if-exists=.env src/server.js",
     "test": "node --test \"test/*.test.js\"",
     "remind": "node --env-file-if-exists=.env src/remind-cli.js",
-    "eval": "node --env-file-if-exists=.env eval/run-eval.mjs --flow .claude/hillclimb/type-to-log --variant baseline --model deepseek-v4.1-flash"
+    "eval": "node --env-file-if-exists=.env eval/run-eval.mjs --flow .claude/hillclimb/type-to-log --variant baseline --model deepseek-v4.1-flash",
+    "build:site": "node src/build-site.js"
   },
   "dependencies": {
     "nodemailer": "^10.0.13"
