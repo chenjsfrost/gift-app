@@ -119,3 +119,14 @@ test('a birthday gift for someone with a birthday counts for their next birthday
   assert.equal(g.occasionDate, '2026-12-01');
   assert.match(await get('/'), /Fay&#39;s birthday 2026[\s\S]*Covered \(1\)[\s\S]*Fay/);
 });
+
+test('home on 2 Oct shows both a nearer birthday and Christmas 2026', async () => {
+  const db2 = openDb(':memory:');
+  db2.addPerson({ name: 'Amy', birthday: '10-20' });
+  db2.addPerson({ name: 'Ben' });
+  const s = createServer(createApp({ db: db2, today: () => '2026-10-02' }));
+  await new Promise((r) => s.listen(0, '127.0.0.1', r));
+  const html = await (await fetch(`http://127.0.0.1:${s.address().port}/`)).text();
+  s.close();
+  assert.match(html, /Amy&#39;s birthday 2026[\s\S]*Christmas 2026/);
+});

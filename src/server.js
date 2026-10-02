@@ -10,7 +10,8 @@ import { parseCost } from './money.js';
 import * as views from './views.js';
 import { createEntryParser } from './ai/parse-entry.js';
 
-export const HOME_WINDOW_DAYS = 60;
+// Wide enough that Christmas shows from late September, when shopping for it starts.
+export const HOME_WINDOW_DAYS = 90;
 
 
 async function readForm(req) {
