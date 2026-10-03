@@ -1,0 +1,29 @@
+# Render Blueprint: New > Blueprint on dashboard.render.com, pick this repo, fill in the
+# secrets it asks for. The SQLite file lives on a persistent disk, which needs a paid
+# plan; on the free plan the disk is wiped on every deploy and restart.
+services:
+  - type: web
+    name: gift-app
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: 0.0.0.0
+      - key: DB_PATH
+        value: /var/data/gifts.db
+      # "Today" (upcoming occasions, the season) follows the server's clock.
+      - key: TZ
+        value: Asia/Singapore
+      - key: APP_PASSWORD
+        sync: false
+      - key: OPENCODE_API_KEY
+        sync: false

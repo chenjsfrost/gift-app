@@ -1,6 +1,7 @@
 // Local web server. createApp() is the request handler, so tests can drive it
 // with an in-memory database and a fixed "today".
 import { createServer } from 'node:http';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { defaultOccasionDate, nextEventDate } from './occasions.js';
@@ -283,12 +284,31 @@ export function createApp({ db, today = localToday, parseEntry = null, season: f
   };
 }
 
+// Online (e.g. on Render) the app is open to anyone with the link, so APP_PASSWORD puts
+// it behind the browser's sign-in box. Any username works; only the password is checked.
+export function withPassword(handler, password) {
+  if (!password) return handler;
+  const digest = (s) => createHash('sha256').update(s).digest();
+  const want = digest(password);
+  return (req, res) => {
+    const [scheme, encoded = ''] = (req.headers.authorization ?? '').split(' ');
+    const given = Buffer.from(encoded, 'base64').toString().split(':').slice(1).join(':');
+    if (scheme === 'Basic' && timingSafeEqual(digest(given), want)) return handler(req, res);
+    res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Gift", charset="UTF-8"', 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Sign in to see your gift list.');
+  };
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const db = openDb(process.env.DB_PATH ?? 'data/gifts.db');
   const port = Number(process.env.PORT ?? 3000);
   const parseEntry = process.env.OPENCODE_API_KEY ? createEntryParser() : null;
-  createServer(createApp({ db, parseEntry, season: process.env.SEASON })).listen(port, '127.0.0.1', () => {
+  // Local only by default. Hosts like Render need HOST=0.0.0.0, and then APP_PASSWORD too.
+  const host = process.env.HOST ?? '127.0.0.1';
+  const app = withPassword(createApp({ db, parseEntry, season: process.env.SEASON }), process.env.APP_PASSWORD);
+  createServer(app).listen(port, host, () => {
     console.log(`Gift app running at http://localhost:${port}`);
+    if (host !== '127.0.0.1' && !process.env.APP_PASSWORD) console.warn('Warning: listening beyond this PC with no APP_PASSWORD, so anyone who can reach it can see and change your list.');
     if (!parseEntry) console.log('Type-to-log is off: set OPENCODE_API_KEY in .env to turn it on.');
   });
 }

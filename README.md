@@ -28,6 +28,15 @@ There's a landing page at http://localhost:3000/welcome. Its hero is a looping C
 
 Amounts are in SGD. Data is stored in `data/gifts.db` (one SQLite file, not committed). Back it up by copying that file.
 
+## Deploy on Render
+
+`render.yaml` is a Render Blueprint. On https://dashboard.render.com choose **New > Blueprint**, connect this GitHub repo, and fill in the two secrets it asks for:
+
+- `APP_PASSWORD`: the password for the browser's sign-in box (any username works). Without it, anyone with the link can see and change your list.
+- `OPENCODE_API_KEY`: turns on type-to-log. Leave it blank to keep it off.
+
+The data is stored at `/var/data/gifts.db` on a 1 GB persistent disk. Disks need a paid instance (Starter); on the free plan the database is wiped on every deploy and restart. To move your local list online, copy `data/gifts.db` to `/var/data/` with `scp` over Render's SSH (see the service's **Connect > SSH**), then restart the service. Every push to main redeploys. Other settings from `.env.example`, such as `AI_MODEL` or `SEASON`, go under the service's **Environment** tab.
+
 ## Spend and balance per person
 
 - **People** shows, for everyone, what you've spent on them so far and how many gifts that covers.

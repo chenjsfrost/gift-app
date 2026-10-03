@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { openDb } from '../src/db.js';
-import { createApp } from '../src/server.js';
+import { createApp, withPassword } from '../src/server.js';
 
 let server, base, db;
 let parseEntry = null;
@@ -267,4 +267,19 @@ test('a one-off event that has passed drops out of the pickers; yearly ones stay
   // Saving Jun without the hidden toggle keeps them on the past event's list.
   await post(`/people/${jun.id}`, { christmas: '1' });
   assert.deepEqual(db.getPerson(jun.id).eventIds, [gone.id]);
+});
+
+test('APP_PASSWORD asks for sign-in and lets the right password through', async () => {
+  const s = createServer(withPassword(createApp({ db: openDb(':memory:'), today: () => '2026-10-02' }), 'hunter2'));
+  await new Promise((r) => s.listen(0, '127.0.0.1', r));
+  const url = `http://127.0.0.1:${s.address().port}/people`;
+  const as = (pw) => fetch(url, { headers: { Authorization: `Basic ${Buffer.from(`me:${pw}`).toString('base64')}` } });
+  const none = await fetch(url);
+  const wrong = await as('nope');
+  const right = await as('hunter2');
+  s.close();
+  assert.equal(none.status, 401);
+  assert.match(none.headers.get('www-authenticate'), /^Basic/);
+  assert.equal(wrong.status, 401);
+  assert.equal(right.status, 200);
 });
